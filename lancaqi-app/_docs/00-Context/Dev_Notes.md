@@ -2,6 +2,8 @@
 
 > Notas de implementação da área administrativa com dados mockados (zero Supabase).
 > Contexto extraído de [[Visao_Administrador]], [[Stack_e_Design_Tokens]], [[Schema_RLS_Seguranca]] e [[System_Prompt]].
+>
+> 🗺️ **Roadmap do que falta:** [[Proximos_Passos]].
 
 ## Design tokens aplicados (`app/globals.css`)
 
@@ -108,6 +110,33 @@ Corrigido para `--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, �
   `sidebar-accent` padrão); inativos em `text-muted-foreground`.
 - **Rotas simétricas:** `/admin/*` e `/analista/*`; `/` é seletor de perfil.
   Admin ganhou `/admin/lancamento`. Ver [[ADR_002_Area_Analista_e_Namespacing_de_Rotas]].
+
+## Back-end: Supabase SSR + Auth Microsoft
+
+Ver [[ADR_003_Integracao_Supabase_e_Auth]] para o detalhe e a revisão de segurança.
+
+- **Clientes:** `lib/supabase/{server,client,middleware}.ts` (`@supabase/ssr`).
+- **Proxy (não middleware):** `proxy.ts` na raiz protege `/admin/*` e `/analista/*`
+  (sem sessão → `/login?redirectTo=`). Next 16 renomeou Middleware → Proxy.
+- **OAuth Azure:** `/login` + `LoginButton` (`signInWithOAuth({provider:'azure'})`);
+  callback em `app/auth/callback/route.ts` (`exchangeCodeForSession`, anti open-redirect).
+- **Server Action `app/actions/despesas-actions.ts`:** `criarDespesa(formData)` —
+  auth via `getUser()`, Zod, **recálculo server-side** das taxas, `usuario_id` da
+  sessão, `revalidatePath`. `valor_calculado` jamais vem do cliente.
+- **Deps adicionadas:** `zod@4`.
+
+### Status dos gaps de segurança
+1. ✅ `is_admin` imposto via DAL `lib/data/auth.ts` (`requireAdmin` no layout admin;
+   `getUsuarioPerfil` para identidade no layout analista). Páginas autenticadas
+   agora são dinâmicas (`ƒ`).
+2. ✅ Leituras migradas para Supabase: `lib/data/{despesas,configuracoes,analista}.ts`
+   consultam o banco (mapper central em `lib/data/mappers.ts`); `dashboard.ts`
+   agrega sobre esses getters. RLS é a barreira real. Removidos `lib/mock-data.ts`
+   e `lib/data/usuario.ts`. As páginas viraram dinâmicas (`ƒ`).
+3. ✅ `FormularioDespesa` conectado ao `criarDespesa` (FormData + `useTransition`,
+   banner de erro do servidor + mapeamento de `fieldErrors`).
+
+> Removido `lib/data/usuario.ts` (mock de usuário admin), agora substituído pela DAL real.
 
 ## Pendências conhecidas
 

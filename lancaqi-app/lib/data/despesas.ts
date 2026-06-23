@@ -1,35 +1,63 @@
-/**
- * Acesso a despesas.
- *
- * HOJE: retorna `DESPESAS_MOCK`.
- * AMANHÃ: substituir o corpo por queries Supabase em Server Components
- *         (admin lê tudo via RLS `is_admin()`), mantendo estas assinaturas.
- *         O filtro por nome deve ir como `ilike` server-side, e não filtrar
- *         um array já carregado no cliente.
- *
- * Funções `async` de propósito: a fronteira já é assíncrona para o futuro
- * `await supabase...`, então as telas não mudam quando o banco entrar.
- */
-import { DESPESAS_MOCK } from "@/lib/mock-data";
+import "server-only";
+
+import {
+  DESPESA_SELECT,
+  mapDespesaFromDb,
+  type DespesaRow,
+} from "@/lib/data/mappers";
+import { createClient } from "@/lib/supabase/server";
 import type { Despesa } from "@/lib/types";
 
-function ordenarPorRecente(a: Despesa, b: Despesa): number {
-  // Mais recente primeiro (data + hora). Alvo: ORDER BY criado_em DESC.
-  return `${b.data}T${b.hora}`.localeCompare(`${a.data}T${a.hora}`);
-}
-
+/**
+ * Leitura de despesas via Supabase. O acesso é controlado pela RLS:
+ * admin (`is_admin()`) enxerga tudo; analista, apenas as próprias
+ * (`auth.uid() = usuario_id`). Ordenado por `criado_em DESC`.
+ */
 export async function getDespesas(): Promise<Despesa[]> {
-  return [...DESPESAS_MOCK].sort(ordenarPorRecente);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("despesas")
+    .select(DESPESA_SELECT)
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    console.error("getDespesas: falha ao ler despesas.", error.message);
+    return [];
+  }
+  return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }
 
-/** Últimas N movimentações para o Dashboard. Alvo: ORDER BY criado_em DESC LIMIT N. */
+/** Últimas N movimentações (Dashboard). */
 export async function getDespesasRecentes(limite = 5): Promise<Despesa[]> {
-  const despesas = await getDespesas();
-  return despesas.slice(0, limite);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("despesas")
+    .select(DESPESA_SELECT)
+    .order("criado_em", { ascending: false })
+    .limit(limite);
+
+  if (error) {
+    console.error("getDespesasRecentes: falha ao ler despesas.", error.message);
+    return [];
+  }
+  return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }
 
-/** Fila do Fechamento Quinzenal. Alvo: WHERE status = 'PENDENTE'. */
+/** Fila do Fechamento Quinzenal (apenas PENDENTE). */
 export async function getDespesasPendentes(): Promise<Despesa[]> {
-  const despesas = await getDespesas();
-  return despesas.filter((d) => d.status === "PENDENTE");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("despesas")
+    .select(DESPESA_SELECT)
+    .eq("status", "PENDENTE")
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    console.error(
+      "getDespesasPendentes: falha ao ler despesas.",
+      error.message,
+    );
+    return [];
+  }
+  return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }

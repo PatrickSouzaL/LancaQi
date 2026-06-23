@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { AlertCircle, CheckCircle2, Loader2, Sparkles } from "lucide-react";
 
+import { criarDespesa } from "@/app/actions/despesas-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,8 +51,9 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
   const [observacao, setObservacao] = useState("");
 
   const [erros, setErros] = useState<Erros>({});
-  const [enviando, setEnviando] = useState(false);
+  const [erroServidor, setErroServidor] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
+  const [enviando, startTransition] = useTransition();
 
   // Deslocamento até o cliente (Moto/Carro): exige origem, destino e KM.
   // Escritório tem valor fixo automático — esses campos não se aplicam.
@@ -87,30 +89,54 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
     setObservacao("");
   }
 
-  async function onSubmit(ev: React.FormEvent<HTMLFormElement>) {
+  // Mapeia os campos retornados pela Server Action (Zod) para os do formulário.
+  const CAMPO_SERVIDOR: Record<string, keyof Erros> = {
+    data: "data",
+    tipo: "tipo",
+    origem: "origem",
+    destino: "destino",
+    quantidade_km: "km",
+  };
+
+  function onSubmit(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     if (enviando) return; // previne duplo clique
 
+    setErroServidor(null);
     const novosErros = validar();
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
+    // Monta o FormData enviado à action. O `valor_calculado` NÃO é enviado —
+    // o servidor recalcula a partir das taxas oficiais.
+    const fd = new FormData();
+    fd.set("data", data);
+    fd.set("tipo", tipo);
+    if (mostrarCliente) {
+      fd.set("origem", origem);
+      fd.set("destino", destino);
+      fd.set("quantidade_km", km);
+    }
+    if (observacao.trim()) fd.set("observacao", observacao.trim());
+
     setSucesso(false);
-    setEnviando(true);
-    // Simula o atraso de uma requisição (sem back-end nesta iteração).
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    console.log("novo lançamento", {
-      data,
-      tipo,
-      // Escritório não tem trajeto; envia vazio e KM zero.
-      origem: mostrarCliente ? origem : undefined,
-      destino: mostrarCliente ? destino : undefined,
-      quantidade_km: mostrarCliente ? Number(km) : 0,
-      observacao: observacao.trim() || undefined,
+    startTransition(async () => {
+      const resultado = await criarDespesa(fd);
+      if (resultado.ok) {
+        setSucesso(true);
+        limpar();
+        return;
+      }
+      setErroServidor(resultado.error);
+      if (resultado.fieldErrors) {
+        const mapeados: Erros = {};
+        for (const [campo, msg] of Object.entries(resultado.fieldErrors)) {
+          const destinoCampo = CAMPO_SERVIDOR[campo];
+          if (destinoCampo) mapeados[destinoCampo] = msg;
+        }
+        setErros((prev) => ({ ...prev, ...mapeados }));
+      }
     });
-    setEnviando(false);
-    setSucesso(true);
-    limpar();
   }
 
   return (
@@ -122,6 +148,16 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
         >
           <CheckCircle2 className="size-4" />
           Lançamento registrado com sucesso.
+        </div>
+      )}
+
+      {erroServidor && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <AlertCircle className="size-4" />
+          {erroServidor}
         </div>
       )}
 

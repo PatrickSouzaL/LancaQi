@@ -2,20 +2,23 @@ import { MapPinned } from "lucide-react";
 
 import { AnalistaNav } from "@/components/analista/AnalistaNav";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getAnalistaAtual } from "@/lib/data/analista";
+import { getUsuarioPerfil } from "@/lib/data/auth";
 import { iniciais } from "@/lib/format";
 
 /**
  * Layout do Analista (Server Component): topbar minimalista focada no usuário
  * final, conforme Visao_Analista.md (simplicidade, zero atrito). A
  * interatividade (rota ativa) fica isolada em AnalistaNav ("use client").
+ *
+ * A identidade vem do usuário autenticado (`getUsuarioPerfil`). As listagens
+ * de despesas ainda usam mock (ver gap de migração em ADR_003).
  */
 export default async function AnalistaLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const analista = await getAnalistaAtual();
+  const analista = await getUsuarioPerfil();
 
   return (
     <div className="flex min-h-full flex-col bg-background">

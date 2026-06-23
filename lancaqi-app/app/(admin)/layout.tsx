@@ -1,7 +1,7 @@
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AppSidebar } from "@/components/admin/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { getUsuarioAtual } from "@/lib/data/usuario";
+import { requireAdmin } from "@/lib/data/auth";
 
 /**
  * Layout da área administrativa (Server Component).
@@ -10,15 +10,16 @@ import { getUsuarioAtual } from "@/lib/data/usuario";
  * interatividade (colapsar sidebar, rota ativa, dropdown) vive nos componentes
  * folha marcados com "use client" — o layout em si não precisa do diretivo.
  *
- * No alvo, este é o ponto de guarda do servidor: validar sessão e `is_admin()`
- * antes de renderizar (redirect caso contrário).
+ * Guarda de servidor: `requireAdmin()` valida a sessão e o privilégio
+ * `is_admin` no banco (camada segura, além do proxy otimista). Não-admins são
+ * redirecionados; sem sessão, vão para /login.
  */
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const usuario = await getUsuarioAtual();
+  const usuario = await requireAdmin();
 
   return (
     <SidebarProvider>

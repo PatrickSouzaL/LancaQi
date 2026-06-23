@@ -1,34 +1,44 @@
+import "server-only";
+
+import { getUsuarioPerfil } from "@/lib/data/auth";
+import { getConfiguracoesTaxas } from "@/lib/data/configuracoes";
+import {
+  DESPESA_SELECT,
+  mapDespesaFromDb,
+  type DespesaRow,
+} from "@/lib/data/mappers";
+import { createClient } from "@/lib/supabase/server";
+import type { ConfiguracoesTaxas, Despesa } from "@/lib/types";
+
 /**
- * Acesso aos dados do próprio analista (usuário comum).
- *
- * HOJE: filtra o mock pelo `usuario_id` do analista atual.
- * AMANHÃ: o isolamento é garantido pela RLS (`auth.uid() = usuario_id`) — o
- *         analista lê/insere apenas as próprias despesas (Visao_Analista.md §2).
+ * Dados do próprio analista. O isolamento é garantido pela RLS
+ * (`auth.uid() = usuario_id`); adicionalmente filtramos por `usuario_id`
+ * explícito como defesa em profundidade (mesmo um admin vê só o próprio aqui).
  */
-import { getDespesas } from "@/lib/data/despesas";
-import { CONFIGURACOES_TAXAS_MOCK } from "@/lib/mock-data";
-import type { ConfiguracoesTaxas, Despesa, Usuario } from "@/lib/types";
 
-const ANALISTA_MOCK: Usuario = {
-  id: "u-002",
-  nome: "Bruno Carvalho",
-  email: "bruno.carvalho@empresa.com",
-  is_admin: false,
-};
-
-export async function getAnalistaAtual(): Promise<Usuario> {
-  return ANALISTA_MOCK;
-}
-
-/** Tarifas vigentes — usadas só para a prévia visual no formulário. */
+/** Tarifas vigentes — usadas apenas para a prévia visual no formulário. */
 export async function getTaxasVigentes(): Promise<ConfiguracoesTaxas> {
-  return CONFIGURACOES_TAXAS_MOCK;
+  return getConfiguracoesTaxas();
 }
 
 export async function getDespesasDoAnalista(): Promise<Despesa[]> {
-  const analista = await getAnalistaAtual();
-  const todas = await getDespesas();
-  return todas.filter((d) => d.usuario_id === analista.id);
+  const perfil = await getUsuarioPerfil();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("despesas")
+    .select(DESPESA_SELECT)
+    .eq("usuario_id", perfil.id)
+    .order("criado_em", { ascending: false });
+
+  if (error) {
+    console.error(
+      "getDespesasDoAnalista: falha ao ler despesas.",
+      error.message,
+    );
+    return [];
+  }
+  return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }
 
 export interface ResumoAnalista {

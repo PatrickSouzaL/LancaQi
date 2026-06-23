@@ -11,16 +11,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getResumoAnalista } from "@/lib/data/analista";
+import { getUsuarioPerfil } from "@/lib/data/auth";
 import { formatarBRL } from "@/lib/format";
 
 export default async function AnalistaDashboardPage() {
-  const resumo = await getResumoAnalista();
+  const [perfil, resumo] = await Promise.all([
+    getUsuarioPerfil(),
+    getResumoAnalista(),
+  ]);
   const vazio = resumo.quantidade === 0;
+  const primeiroNome = perfil.nome.split(/\s+/)[0];
 
   return (
     <>
       <PageHeading
-        titulo="Olá, Bruno"
+        titulo={`Olá, ${primeiroNome}`}
         descricao="Resumo dos seus deslocamentos na quinzena atual."
         acao={
           <Button asChild className="h-11">
