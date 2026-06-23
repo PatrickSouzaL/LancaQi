@@ -178,7 +178,23 @@
   },
   "active": "23e7413fa07ba841",
   "lastOpenFiles": [
+    "00-Context/Dev_Notes.md.tmp.26756.1e440b23675a",
+    "00-Context/Dev_Notes.md.tmp.26756.72ec4efedc25",
+    "03-Decisions/ADR_002_Area_Analista_e_Namespacing_de_Rotas.md",
+    "03-Decisions/ADR_002_Area_Analista_e_Namespacing_de_Rotas.md.tmp.26756.89d3a5d32186",
+    "04-Features/Visao_Analista.md",
+    "02-Architecture/SKILL.md",
+    "02-Architecture/UI_UX_Guidelines.md",
+    "00-Context/Dev_Notes.md.tmp.26756.c555d9a64ce6",
+    "03-Decisions/ADR_001_Estrutura_Rotas_e_Reconciliacao_Contratos.md",
+    "03-Decisions/ADR_001_Estrutura_Rotas_e_Reconciliacao_Contratos.md.tmp.26756.9bf30b4612f0",
+    "03-Decisions",
+    "00-Context/Dev_Notes.md",
+    "00-Context/Dev_Notes.md.tmp.26756.aab0a6324887",
+    "00-Context",
+    "01-Database_e_Seguranca/Schema_RLS_Seguranca.md",
+    "04-Features/Visao_Administrador.md",
     "02-Architecture/Stack_e_Design_Tokens.md",
-    "01-Database_e_Seguranca/Schema_RLS_Seguranca.md"
+    "03-Prompts_Templates/System_Prompt.md"
   ]
 }
