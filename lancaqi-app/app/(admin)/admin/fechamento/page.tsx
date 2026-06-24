@@ -1,3 +1,5 @@
+import { CalendarClock } from "lucide-react";
+
 import { PageHeading } from "@/components/PageHeading";
 import { AnalistaCell } from "@/components/admin/AnalistaCell";
 import { FechamentoClient } from "@/components/admin/FechamentoClient";
@@ -19,6 +21,7 @@ import {
 import { getDespesasPendentes } from "@/lib/data/despesas";
 import { getResumoFechamento } from "@/lib/data/dashboard";
 import { formatarBRL, formatarKm } from "@/lib/format";
+import { quinzenaAtual } from "@/lib/periodo";
 
 export default async function FechamentoPage() {
   // Apenas status = 'PENDENTE' entra no fechamento (no alvo: WHERE status = 'PENDENTE').
@@ -28,19 +31,28 @@ export default async function FechamentoPage() {
   ]);
 
   const totalPeriodo = resumo.reduce((soma, r) => soma + r.totalPendente, 0);
+  const periodo = quinzenaAtual();
 
   return (
     <>
       <PageHeading
         titulo="Fechamento Quinzenal"
         descricao="Consolide e pague em lote as despesas pendentes do período."
+        acao={
+          // Legenda do período — orienta quem realiza o pagamento.
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+            <CalendarClock className="size-3.5" />
+            Quinzena de {periodo.rotulo}
+          </span>
+        }
       />
 
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Resumo por Analista</CardTitle>
           <CardDescription>
-            Quinzena atual • {formatarBRL(totalPeriodo)} pendentes de pagamento
+            Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)} pendentes
+            de pagamento
           </CardDescription>
         </CardHeader>
         <CardContent>
