@@ -23,6 +23,7 @@ export interface DespesaRow {
   quantidade_km: number | string | null;
   valor_calculado: number | string;
   status: StatusDespesa;
+  cliente_id: string | null;
   criado_em: string;
   // Relacionamento to-one; o PostgREST pode retornar objeto ou array.
   usuarios: { nome: string | null } | { nome: string | null }[] | null;
@@ -30,7 +31,7 @@ export interface DespesaRow {
 
 /** Colunas selecionadas em toda leitura de despesas (inclui o join de nome). */
 export const DESPESA_SELECT =
-  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, criado_em, usuarios ( nome )";
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, cliente_id, criado_em, usuarios ( nome )";
 
 /**
  * Variante com `!inner` no join: ao filtrar por `usuarios.nome` (busca server-
@@ -38,7 +39,7 @@ export const DESPESA_SELECT =
  * `despesas` — com o join padrão (left) o filtro não eliminaria as despesas.
  */
 export const DESPESA_SELECT_BUSCA =
-  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, criado_em, usuarios!inner ( nome )";
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, cliente_id, criado_em, usuarios!inner ( nome )";
 
 function nomeDoUsuario(usuarios: DespesaRow["usuarios"]): string {
   if (!usuarios) return "—";
@@ -67,5 +68,6 @@ export function mapDespesaFromDb(row: DespesaRow): Despesa {
     quantidade_km: row.quantidade_km == null ? 0 : Number(row.quantidade_km),
     valor_calculado: Number(row.valor_calculado),
     status: row.status,
+    cliente_id: row.cliente_id,
   };
 }

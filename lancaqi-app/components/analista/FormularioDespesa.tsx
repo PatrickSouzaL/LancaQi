@@ -7,6 +7,10 @@ import { format, parseISO, subYears, isAfter, isBefore, startOfDay } from "date-
 import { ptBR } from "date-fns/locale";
 
 import { criarDespesa, editarDespesa } from "@/app/actions/despesas-actions";
+import {
+  ClienteCombobox,
+  type OpcaoCliente,
+} from "@/components/ClienteCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,11 +29,6 @@ import { formatarBRL } from "@/lib/format";
 import type { ConfiguracoesTaxas, Despesa, TipoDespesa } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/** "—" do mapper (origem/destino nulos) não é um valor editável real. */
-function valorInicial(v?: string): string {
-  return v && v !== "—" ? v : "";
-}
-
 interface OpcaoTipo {
   valor: TipoDespesa;
   label: string;
@@ -41,7 +40,9 @@ const OPCOES_TIPO: OpcaoTipo[] = [
   { valor: "CARRO", label: "Cliente — Carro" },
 ];
 
-type Erros = Partial<Record<"data" | "tipo" | "origem" | "destino" | "km", string>>;
+type Erros = Partial<
+  Record<"data" | "tipo" | "origem" | "cliente" | "km", string>
+>;
 
 /**
  * Formulário de novo lançamento (Visao_Analista §3.2 + UI_UX_Guidelines §2.2).
@@ -58,20 +59,30 @@ type Erros = Partial<Record<"data" | "tipo" | "origem" | "destino" | "km", strin
  */
 export function FormularioDespesa({
   taxas,
+  clientes,
   despesa,
   onSucesso,
 }: {
   taxas: ConfiguracoesTaxas;
+  clientes: OpcaoCliente[];
   despesa?: Despesa;
   onSucesso?: () => void;
 }) {
   const editando = despesa !== undefined;
 
+  // Na edição, a origem foi salva como TEXTO (nome do cliente); recupera o id
+  // correspondente para pré-selecionar o combobox. O cliente vem direto do FK.
+  const origemInicial = despesa
+    ? (clientes.find((c) => c.nome === despesa.origem)?.id ?? null)
+    : null;
+
   const [data, setData] = useState(despesa?.data ?? "");
   const [popoverAberto, setPopoverAberto] = useState(false);
   const [tipo, setTipo] = useState<TipoDespesa | "">(despesa?.tipo ?? "");
-  const [origem, setOrigem] = useState(valorInicial(despesa?.origem));
-  const [destino, setDestino] = useState(valorInicial(despesa?.destino));
+  const [origemId, setOrigemId] = useState<string | null>(origemInicial);
+  const [clienteId, setClienteId] = useState<string | null>(
+    despesa?.cliente_id ?? null,
+  );
   const [km, setKm] = useState(
     despesa && despesa.quantidade_km > 0 ? String(despesa.quantidade_km) : "",
   );
@@ -110,10 +121,10 @@ export function FormularioDespesa({
       }
     }
     if (tipo === "") e.tipo = "Selecione o tipo.";
-    // Origem/destino/KM só são exigidos em deslocamentos até o cliente.
+    // Origem/cliente/KM só são exigidos em deslocamentos até o cliente.
     if (mostrarCliente) {
-      if (!origem.trim()) e.origem = "Informe a origem.";
-      if (!destino.trim()) e.destino = "Informe o destino.";
+      if (!origemId) e.origem = "Selecione a origem.";
+      if (!clienteId) e.cliente = "Selecione o cliente.";
       const kmNum = Number(km);
       if (km.trim() === "" || Number.isNaN(kmNum) || kmNum <= 0)
         e.km = "Informe uma quilometragem maior que zero.";
@@ -124,8 +135,8 @@ export function FormularioDespesa({
   function limpar() {
     setData("");
     setTipo("");
-    setOrigem("");
-    setDestino("");
+    setOrigemId(null);
+    setClienteId(null);
     setKm("");
     setObservacao("");
   }
@@ -134,8 +145,8 @@ export function FormularioDespesa({
   const CAMPO_SERVIDOR: Record<string, keyof Erros> = {
     data: "data",
     tipo: "tipo",
-    origem: "origem",
-    destino: "destino",
+    origem_cliente_id: "origem",
+    cliente_id: "cliente",
     quantidade_km: "km",
   };
 
@@ -154,8 +165,8 @@ export function FormularioDespesa({
     fd.set("data", data);
     fd.set("tipo", tipo);
     if (mostrarCliente) {
-      fd.set("origem", origem);
-      fd.set("destino", destino);
+      if (origemId) fd.set("origem_cliente_id", origemId);
+      if (clienteId) fd.set("cliente_id", clienteId);
       fd.set("quantidade_km", km);
     }
     if (observacao.trim()) fd.set("observacao", observacao.trim());
@@ -255,9 +266,10 @@ export function FormularioDespesa({
       </div>
 
       {/*
-        Trajeto (origem/destino) + KM. Só se aplicam a deslocamentos até o
+        Trajeto (origem/cliente) + KM. Só se aplicam a deslocamentos até o
         cliente — para Escritório o valor é automático, então o bloco inteiro
-        some com transição suave de altura/opacidade (sem salto).
+        some com transição suave de altura/opacidade (sem salto). Origem e
+        cliente são SELECIONADOS (busca no combobox); não aceitam texto livre.
       */}
       <div
         className={cn(
@@ -273,32 +285,32 @@ export function FormularioDespesa({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="origem">Origem</Label>
-                <Input
+                <ClienteCombobox
                   id="origem"
-                  value={origem}
-                  onChange={(e) => setOrigem(e.target.value)}
-                  placeholder="Ex.: Home Office"
-                  className="h-11"
-                  tabIndex={mostrarCliente ? undefined : -1}
-                  aria-invalid={Boolean(erros.origem)}
+                  clientes={clientes}
+                  value={origemId}
+                  onChange={setOrigemId}
+                  placeholder="Selecione a origem"
+                  invalid={Boolean(erros.origem)}
+                  disabled={!mostrarCliente}
                 />
                 {erros.origem && (
                   <p className="text-sm text-destructive">{erros.origem}</p>
                 )}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="destino">Destino</Label>
-                <Input
-                  id="destino"
-                  value={destino}
-                  onChange={(e) => setDestino(e.target.value)}
-                  placeholder="Ex.: Cliente — Pinheiros"
-                  className="h-11"
-                  tabIndex={mostrarCliente ? undefined : -1}
-                  aria-invalid={Boolean(erros.destino)}
+                <Label htmlFor="cliente">Cliente (destino)</Label>
+                <ClienteCombobox
+                  id="cliente"
+                  clientes={clientes}
+                  value={clienteId}
+                  onChange={setClienteId}
+                  placeholder="Selecione o cliente"
+                  invalid={Boolean(erros.cliente)}
+                  disabled={!mostrarCliente}
                 />
-                {erros.destino && (
-                  <p className="text-sm text-destructive">{erros.destino}</p>
+                {erros.cliente && (
+                  <p className="text-sm text-destructive">{erros.cliente}</p>
                 )}
               </div>
             </div>

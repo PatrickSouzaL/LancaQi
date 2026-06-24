@@ -38,6 +38,7 @@ export interface Despesa {
   quantidade_km: number; // 0 para ESCRITORIO (valor fixo)
   valor_calculado: number; // recalculado no servidor; aqui é mock
   status: StatusDespesa;
+  cliente_id: string | null; // FK → clientes.id (null em ESCRITORIO)
   observacao?: string;
 }
 

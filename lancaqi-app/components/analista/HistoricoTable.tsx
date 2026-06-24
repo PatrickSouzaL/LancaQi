@@ -1,4 +1,5 @@
 import { HistoricoAcoes } from "@/components/analista/HistoricoAcoes";
+import type { OpcaoCliente } from "@/components/ClienteCombobox";
 import {
   Table,
   TableBody,
@@ -39,9 +40,11 @@ function StatusBadge({ status }: { status: StatusDespesa }) {
 export function HistoricoTable({
   despesas,
   taxas,
+  clientes,
 }: {
   despesas: Despesa[];
   taxas: ConfiguracoesTaxas;
+  clientes: OpcaoCliente[];
 }) {
   return (
     <>
@@ -79,7 +82,12 @@ export function HistoricoTable({
                   <StatusBadge status={d.status} />
                 </TableCell>
                 <TableCell className="text-center">
-                  <HistoricoAcoes despesa={d} taxas={taxas} className="justify-center" />
+                  <HistoricoAcoes
+                    despesa={d}
+                    taxas={taxas}
+                    clientes={clientes}
+                    className="justify-center"
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -119,7 +127,7 @@ export function HistoricoTable({
             </div>
             {d.status === "PENDENTE" && (
               <div className="mt-2 border-t pt-2">
-                <HistoricoAcoes despesa={d} taxas={taxas} />
+                <HistoricoAcoes despesa={d} taxas={taxas} clientes={clientes} />
               </div>
             )}
           </li>

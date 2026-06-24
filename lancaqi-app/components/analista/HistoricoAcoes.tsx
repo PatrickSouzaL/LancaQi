@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 
 import { ExcluirDespesaButton } from "@/components/ExcluirDespesaButton";
 import { FormularioDespesa } from "@/components/analista/FormularioDespesa";
+import type { OpcaoCliente } from "@/components/ClienteCombobox";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -25,10 +26,12 @@ import { cn } from "@/lib/utils";
 export function HistoricoAcoes({
   despesa,
   taxas,
+  clientes,
   className,
 }: {
   despesa: Despesa;
   taxas: ConfiguracoesTaxas;
+  clientes: OpcaoCliente[];
   className?: string;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -59,6 +62,7 @@ export function HistoricoAcoes({
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <FormularioDespesa
               taxas={taxas}
+              clientes={clientes}
               despesa={despesa}
               onSucesso={() => setAberto(false)}
             />

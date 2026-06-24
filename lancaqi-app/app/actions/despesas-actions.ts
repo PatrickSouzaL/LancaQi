@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ConfiguracoesTaxas } from "@/lib/types";
 
 /**
- * Resultado tipado da action (consumível por `useActionState` no cliente).
+ * Resultado tipado da action (consumível por `useActionState`/`useTransition`).
  */
 export type CriarDespesaState =
   | { ok: true }
@@ -18,7 +18,11 @@ export type CriarDespesaState =
 /**
  * Validação Zod da entrada. NUNCA inclui `valor_calculado` — o valor financeiro
  * é recalculado no servidor a partir de `configuracoes_taxas`.
- * Para deslocamentos até o cliente (MOTO/CARRO) a quilometragem é obrigatória.
+ *
+ * Para deslocamentos até o cliente (MOTO/CARRO): km > 0, e origem/cliente são
+ * SELECIONADOS por id (`origem_cliente_id` e `cliente_id`). Os textos
+ * `origem`/`destino` NÃO vêm do cliente — são resolvidos no servidor a partir
+ * dos nomes oficiais em `clientes` (Zero Trust).
  */
 const DespesaCamposSchema = z.object({
   data: z
@@ -38,30 +42,56 @@ const DespesaCamposSchema = z.object({
         }
       },
       {
-        message: "A data não pode ser no futuro e deve ter no máximo 1 ano para trás.",
-      }
+        message:
+          "A data não pode ser no futuro e deve ter no máximo 1 ano para trás.",
+      },
     ),
   tipo: z.enum(["ESCRITORIO", "MOTO", "CARRO"]),
-  origem: z.string().trim().max(255).optional(),
-  destino: z.string().trim().max(255).optional(),
   quantidade_km: z.coerce
     .number()
     .min(0, "A quilometragem não pode ser negativa.")
     .optional(),
   observacao: z.string().trim().max(1000).optional(),
+  origem_cliente_id: z.string().uuid("Origem inválida.").optional(),
+  cliente_id: z.string().uuid("Cliente inválido.").optional(),
 });
 
-/** Para deslocamentos até o cliente (MOTO/CARRO) a quilometragem é obrigatória. */
-const exigeKmValido = (d: { tipo: string; quantidade_km?: number }) =>
-  d.tipo === "ESCRITORIO" ||
+type DespesaCampos = z.infer<typeof DespesaCamposSchema>;
+
+const ehDeslocamento = (d: { tipo: string }) => d.tipo !== "ESCRITORIO";
+
+// Regras condicionais (só exigidas em MOTO/CARRO).
+const exigeKmValido = (d: DespesaCampos) =>
+  !ehDeslocamento(d) ||
   (typeof d.quantidade_km === "number" && d.quantidade_km > 0);
+const exigeOrigem = (d: DespesaCampos) =>
+  !ehDeslocamento(d) || Boolean(d.origem_cliente_id);
+const exigeCliente = (d: DespesaCampos) =>
+  !ehDeslocamento(d) || Boolean(d.cliente_id);
 
 const REFINE_KM = {
   path: ["quantidade_km"],
   message: "Informe uma quilometragem maior que zero.",
 };
+const REFINE_ORIGEM = {
+  path: ["origem_cliente_id"],
+  message: "Selecione a origem.",
+};
+const REFINE_CLIENTE = {
+  path: ["cliente_id"],
+  message: "Selecione o cliente.",
+};
 
-const CriarDespesaSchema = DespesaCamposSchema.refine(exigeKmValido, REFINE_KM);
+const CriarDespesaSchema = DespesaCamposSchema.refine(exigeKmValido, REFINE_KM)
+  .refine(exigeOrigem, REFINE_ORIGEM)
+  .refine(exigeCliente, REFINE_CLIENTE);
+
+const EditarDespesaSchema = DespesaCamposSchema.extend({
+  id: z.string().uuid("Identificador inválido."),
+})
+  .refine(exigeKmValido, REFINE_KM)
+  .refine(exigeOrigem, REFINE_ORIGEM)
+  .refine(exigeCliente, REFINE_CLIENTE);
 
 /** Linha de `configuracoes_taxas` (tipagem estrita da resposta do banco). */
 interface ConfiguracoesTaxasRow {
@@ -71,99 +101,83 @@ interface ConfiguracoesTaxasRow {
   taxa_km_carro: number;
 }
 
-/**
- * Cria uma nova despesa.
- *
- * Regra arquitetural crítica (Zero Trust): o `valor_calculado` é SEMPRE refeito
- * no servidor. O cliente envia apenas tipo/km/data/origem/destino — nunca o
- * valor final. O `usuario_id` vem de `auth.getUser()`, jamais do formulário.
- */
-export async function criarDespesa(
-  formData: FormData,
-): Promise<CriarDespesaState> {
-  const supabase = await createClient();
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
-  // 1. Autenticação — a action é acessível via POST direto; valide sempre.
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error("criarDespesa: usuário não autenticado.", authError?.message);
-    return { ok: false, error: "Sessão expirada. Faça login novamente." };
+/** Converte os issues do Zod no formato consumido pelo formulário. */
+function fieldErrorsDe(error: z.ZodError): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const campo = String(issue.path[0] ?? "form");
+    fieldErrors[campo] ??= issue.message;
   }
+  return fieldErrors;
+}
 
-  // 2. Validação da entrada (camada 1 — Zod).
-  const parsed = CriarDespesaSchema.safeParse({
-    data: formData.get("data"),
-    tipo: formData.get("tipo"),
-    origem: formData.get("origem") ?? undefined,
-    destino: formData.get("destino") ?? undefined,
-    quantidade_km: formData.get("quantidade_km") ?? undefined,
-    observacao: formData.get("observacao") ?? undefined,
-  });
-
-  if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const campo = String(issue.path[0] ?? "form");
-      fieldErrors[campo] ??= issue.message;
-    }
-    return { ok: false, error: "Verifique os campos do formulário.", fieldErrors };
-  }
-
-  // `observacao` é validada mas NÃO persistida: a coluna não existe no schema
-  // atual de `despesas` (ver Schema_RLS_Seguranca.md → evoluções sugeridas).
-  const { data, tipo, origem, destino, quantidade_km } = parsed.data;
-  const ehCliente = tipo !== "ESCRITORIO";
-  const km = ehCliente ? (quantidade_km ?? 0) : 0;
-
-  // 3. Tarifa oficial do banco (camada 2 — recálculo server-side).
-  const { data: taxasRowRaw, error: taxasError } = await supabase
+/** Lê a tarifa vigente (linha única) e normaliza os decimais para number. */
+async function lerTaxas(
+  supabase: SupabaseServerClient,
+): Promise<ConfiguracoesTaxas | null> {
+  const { data, error } = await supabase
     .from("configuracoes_taxas")
     .select("id, valor_fixo_escritorio, taxa_km_moto, taxa_km_carro")
     .limit(1)
     .single();
 
-  const taxasRow = taxasRowRaw as ConfiguracoesTaxasRow | null;
-
-  if (taxasError || !taxasRow) {
-    console.error("criarDespesa: falha ao ler configuracoes_taxas.", taxasError?.message);
-    return { ok: false, error: "Não foi possível obter as taxas vigentes." };
+  const row = data as ConfiguracoesTaxasRow | null;
+  if (error || !row) {
+    console.error("lerTaxas: falha ao ler configuracoes_taxas.", error?.message);
+    return null;
   }
-
-  // Decimais podem vir como string do PostgREST — normaliza para número.
-  const taxas: ConfiguracoesTaxas = {
-    id: taxasRow.id,
-    valor_fixo_escritorio: Number(taxasRow.valor_fixo_escritorio),
-    taxa_km_moto: Number(taxasRow.taxa_km_moto),
-    taxa_km_carro: Number(taxasRow.taxa_km_carro),
+  return {
+    id: row.id,
+    valor_fixo_escritorio: Number(row.valor_fixo_escritorio),
+    taxa_km_moto: Number(row.taxa_km_moto),
+    taxa_km_carro: Number(row.taxa_km_carro),
   };
+}
 
-  const valorCalculado = calcularPrevia(tipo, km, taxas);
+type Trajeto =
+  | { ok: true; origem: string | null; destino: string | null; clienteId: string | null }
+  | { ok: false; error: string };
 
-  // 4. Inserção. `usuario_id` deriva da sessão; `status` usa o default PENDENTE.
-  // A RLS (camada 3) rejeita qualquer escrita fora de auth.uid() = usuario_id.
-  const { error: insertError } = await supabase.from("despesas").insert({
-    usuario_id: user.id,
-    data,
-    origem: ehCliente ? (origem ?? null) : null,
-    destino: ehCliente ? (destino ?? null) : null,
-    tipo,
-    quantidade_km: ehCliente ? km : null,
-    valor_calculado: valorCalculado,
-  });
-
-  if (insertError) {
-    console.error("criarDespesa: falha ao inserir despesa.", insertError.message);
-    return { ok: false, error: "Não foi possível registrar a despesa." };
+/**
+ * Resolve origem/destino/cliente_id a partir dos ids selecionados — Zero Trust:
+ * os nomes vêm dos registros oficiais em `clientes`, nunca do cliente. Em
+ * ESCRITORIO não há trajeto. Para MOTO/CARRO, ambos os ids devem existir.
+ */
+async function resolverTrajeto(
+  supabase: SupabaseServerClient,
+  dados: DespesaCampos,
+): Promise<Trajeto> {
+  if (!ehDeslocamento(dados)) {
+    return { ok: true, origem: null, destino: null, clienteId: null };
   }
 
-  // 5. Atualiza o cache das telas que listam despesas.
-  revalidarListagens();
+  const origemId = dados.origem_cliente_id!;
+  const clienteId = dados.cliente_id!;
+  const ids = Array.from(new Set([origemId, clienteId]));
 
-  return { ok: true };
+  const { data, error } = await supabase
+    .from("clientes")
+    .select("id, nome")
+    .in("id", ids);
+
+  if (error) {
+    console.error("resolverTrajeto: falha ao ler clientes.", error.message);
+    return { ok: false, error: "Não foi possível validar os clientes." };
+  }
+
+  const mapa = new Map(
+    (data as { id: string; nome: string }[]).map((c) => [c.id, c.nome]),
+  );
+  const origem = mapa.get(origemId);
+  const destino = mapa.get(clienteId);
+
+  if (!origem || !destino) {
+    return { ok: false, error: "Cliente selecionado não encontrado." };
+  }
+
+  return { ok: true, origem, destino, clienteId };
 }
 
 /** Revalida todas as telas que listam/agregam despesas. */
@@ -176,6 +190,81 @@ function revalidarListagens() {
 }
 
 // ---------------------------------------------------------------------------
+// Criar despesa
+// ---------------------------------------------------------------------------
+
+/**
+ * Cria uma nova despesa. Zero Trust: `valor_calculado` é refeito no servidor;
+ * `usuario_id` vem da sessão; origem/destino são os nomes oficiais dos clientes
+ * selecionados. A RLS rejeita escrita fora de `auth.uid() = usuario_id`.
+ */
+export async function criarDespesa(
+  formData: FormData,
+): Promise<CriarDespesaState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error("criarDespesa: usuário não autenticado.", authError?.message);
+    return { ok: false, error: "Sessão expirada. Faça login novamente." };
+  }
+
+  const parsed = CriarDespesaSchema.safeParse({
+    data: formData.get("data"),
+    tipo: formData.get("tipo"),
+    quantidade_km: formData.get("quantidade_km") ?? undefined,
+    observacao: formData.get("observacao") ?? undefined,
+    origem_cliente_id: formData.get("origem_cliente_id") ?? undefined,
+    cliente_id: formData.get("cliente_id") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Verifique os campos do formulário.",
+      fieldErrors: fieldErrorsDe(parsed.error),
+    };
+  }
+
+  const { data, tipo, quantidade_km } = parsed.data;
+  const ehCliente = ehDeslocamento(parsed.data);
+  const km = ehCliente ? (quantidade_km ?? 0) : 0;
+
+  const taxas = await lerTaxas(supabase);
+  if (!taxas) {
+    return { ok: false, error: "Não foi possível obter as taxas vigentes." };
+  }
+
+  const trajeto = await resolverTrajeto(supabase, parsed.data);
+  if (!trajeto.ok) return { ok: false, error: trajeto.error };
+
+  const valorCalculado = calcularPrevia(tipo, km, taxas);
+
+  const { error: insertError } = await supabase.from("despesas").insert({
+    usuario_id: user.id,
+    data,
+    origem: trajeto.origem,
+    destino: trajeto.destino,
+    tipo,
+    quantidade_km: ehCliente ? km : null,
+    valor_calculado: valorCalculado,
+    cliente_id: trajeto.clienteId,
+  });
+
+  if (insertError) {
+    console.error("criarDespesa: falha ao inserir despesa.", insertError.message);
+    return { ok: false, error: "Não foi possível registrar a despesa." };
+  }
+
+  revalidarListagens();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Editar despesa (analista; somente a própria e enquanto PENDENTE)
 // ---------------------------------------------------------------------------
 
@@ -183,15 +272,10 @@ export type EditarDespesaState =
   | { ok: true }
   | { ok: false; error: string; fieldErrors?: Record<string, string> };
 
-const EditarDespesaSchema = DespesaCamposSchema.extend({
-  id: z.string().uuid("Identificador inválido."),
-}).refine(exigeKmValido, REFINE_KM);
-
 /**
- * Edita uma despesa do próprio analista. Igual a `criarDespesa` no rigor:
- * recálculo server-side do valor, `usuario_id` da sessão, e os filtros
- * `usuario_id = auth.uid()` + `status = 'PENDENTE'` garantem que só a dona
- * edite, e só enquanto pendente (a RLS é a barreira final).
+ * Edita uma despesa do próprio analista. Mesmo rigor de `criarDespesa`. Os
+ * filtros `usuario_id = auth.uid()` + `status = 'PENDENTE'` garantem que só a
+ * dona edite, e só enquanto pendente (a RLS é a barreira final).
  */
 export async function editarDespesa(
   formData: FormData,
@@ -211,43 +295,31 @@ export async function editarDespesa(
     id: formData.get("id"),
     data: formData.get("data"),
     tipo: formData.get("tipo"),
-    origem: formData.get("origem") ?? undefined,
-    destino: formData.get("destino") ?? undefined,
     quantidade_km: formData.get("quantidade_km") ?? undefined,
     observacao: formData.get("observacao") ?? undefined,
+    origem_cliente_id: formData.get("origem_cliente_id") ?? undefined,
+    cliente_id: formData.get("cliente_id") ?? undefined,
   });
 
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const campo = String(issue.path[0] ?? "form");
-      fieldErrors[campo] ??= issue.message;
-    }
-    return { ok: false, error: "Verifique os campos do formulário.", fieldErrors };
+    return {
+      ok: false,
+      error: "Verifique os campos do formulário.",
+      fieldErrors: fieldErrorsDe(parsed.error),
+    };
   }
 
-  const { id, data, tipo, origem, destino, quantidade_km } = parsed.data;
-  const ehCliente = tipo !== "ESCRITORIO";
+  const { id, data, tipo, quantidade_km } = parsed.data;
+  const ehCliente = ehDeslocamento(parsed.data);
   const km = ehCliente ? (quantidade_km ?? 0) : 0;
 
-  const { data: taxasRowRaw, error: taxasError } = await supabase
-    .from("configuracoes_taxas")
-    .select("id, valor_fixo_escritorio, taxa_km_moto, taxa_km_carro")
-    .limit(1)
-    .single();
-
-  const taxasRow = taxasRowRaw as ConfiguracoesTaxasRow | null;
-  if (taxasError || !taxasRow) {
-    console.error("editarDespesa: falha ao ler configuracoes_taxas.", taxasError?.message);
+  const taxas = await lerTaxas(supabase);
+  if (!taxas) {
     return { ok: false, error: "Não foi possível obter as taxas vigentes." };
   }
 
-  const taxas: ConfiguracoesTaxas = {
-    id: taxasRow.id,
-    valor_fixo_escritorio: Number(taxasRow.valor_fixo_escritorio),
-    taxa_km_moto: Number(taxasRow.taxa_km_moto),
-    taxa_km_carro: Number(taxasRow.taxa_km_carro),
-  };
+  const trajeto = await resolverTrajeto(supabase, parsed.data);
+  if (!trajeto.ok) return { ok: false, error: trajeto.error };
 
   const valorCalculado = calcularPrevia(tipo, km, taxas);
 
@@ -255,11 +327,12 @@ export async function editarDespesa(
     .from("despesas")
     .update({
       data,
-      origem: ehCliente ? (origem ?? null) : null,
-      destino: ehCliente ? (destino ?? null) : null,
+      origem: trajeto.origem,
+      destino: trajeto.destino,
       tipo,
       quantidade_km: ehCliente ? km : null,
       valor_calculado: valorCalculado,
+      cliente_id: trajeto.clienteId,
     })
     .eq("id", id)
     .eq("usuario_id", user.id)
@@ -324,12 +397,8 @@ export async function excluirDespesa(
     return { ok: false, error: "Não foi possível excluir a despesa." };
   }
 
-  // Zero linhas = a RLS bloqueou (não é dona / não está pendente / não é admin).
   if (!removidas || removidas.length === 0) {
-    return {
-      ok: false,
-      error: "Você não pode excluir esta despesa.",
-    };
+    return { ok: false, error: "Você não pode excluir esta despesa." };
   }
 
   revalidarListagens();
