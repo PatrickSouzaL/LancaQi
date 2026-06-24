@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDespesasPendentes } from "@/lib/data/despesas";
 import { formatarData, labelStatus, labelTipo } from "@/lib/format";
 import { gerarCsv } from "@/lib/csv";
+import { quinzenaAtual } from "@/lib/periodo";
 
 /**
  * Exporta as despesas PENDENTES em CSV (Fechamento Quinzenal).
@@ -32,7 +33,8 @@ export async function GET() {
     return new Response("Acesso restrito a administradores.", { status: 403 });
   }
 
-  const pendentes = await getDespesasPendentes();
+  // Mesma fila da tela: pendentes da quinzena vigente.
+  const pendentes = await getDespesasPendentes(quinzenaAtual());
 
   const cabecalho = [
     "Analista",

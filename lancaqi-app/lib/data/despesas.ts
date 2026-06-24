@@ -102,14 +102,26 @@ export async function getDespesasRecentes(limite = 5): Promise<Despesa[]> {
   return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }
 
-/** Fila do Fechamento Quinzenal (apenas PENDENTE). */
-export async function getDespesasPendentes(): Promise<Despesa[]> {
+/**
+ * Fila do Fechamento Quinzenal (apenas PENDENTE). Com `periodo`, restringe à
+ * quinzena vigente (intervalo de `data`), para o pagamento não misturar
+ * pendências de quinzenas anteriores.
+ */
+export async function getDespesasPendentes(
+  periodo?: Periodo,
+): Promise<Despesa[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("despesas")
     .select(DESPESA_SELECT)
     .eq("status", "PENDENTE")
     .order("criado_em", { ascending: false });
+
+  if (periodo) {
+    query = query.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error(

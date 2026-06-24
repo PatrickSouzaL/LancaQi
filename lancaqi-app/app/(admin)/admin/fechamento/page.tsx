@@ -24,14 +24,14 @@ import { formatarBRL, formatarKm } from "@/lib/format";
 import { quinzenaAtual } from "@/lib/periodo";
 
 export default async function FechamentoPage() {
-  // Apenas status = 'PENDENTE' entra no fechamento (no alvo: WHERE status = 'PENDENTE').
+  // Fechamento da quinzena vigente: PENDENTE + intervalo de datas da quinzena.
+  const periodo = quinzenaAtual();
   const [pendentes, resumo] = await Promise.all([
-    getDespesasPendentes(),
-    getResumoFechamento(),
+    getDespesasPendentes(periodo),
+    getResumoFechamento(periodo),
   ]);
 
   const totalPeriodo = resumo.reduce((soma, r) => soma + r.totalPendente, 0);
-  const periodo = quinzenaAtual();
 
   return (
     <>

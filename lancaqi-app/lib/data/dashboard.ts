@@ -102,10 +102,10 @@ export async function getDistribuicaoPorTipo(
   }));
 }
 
-export async function getResumoFechamento(): Promise<
-  ResumoFechamentoUsuario[]
-> {
-  const pendentes = await getDespesasPendentes();
+export async function getResumoFechamento(
+  periodo?: Periodo,
+): Promise<ResumoFechamentoUsuario[]> {
+  const pendentes = await getDespesasPendentes(periodo);
 
   const porUsuario = new Map<string, ResumoFechamentoUsuario>();
   for (const d of pendentes) {
