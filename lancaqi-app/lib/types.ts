@@ -42,6 +42,20 @@ export interface Despesa {
 }
 
 /**
+ * Cadastro de clientes (tabela `clientes`). Apenas `nome` é obrigatório; os
+ * demais campos são opcionais no schema (NULL quando ausentes). Contrato
+ * alinhado à Migracao_002 (endereço + cnpj; sem e-mail/documento).
+ */
+export interface Cliente {
+  id: string; // uuid — gen_random_uuid()
+  nome: string;
+  endereco: string | null;
+  cnpj: string | null;
+  telefone: string | null;
+  criado_em: string; // timestamptz (ISO)
+}
+
+/**
  * Tabela single-row `configuracoes_taxas`. Estes três parâmetros governam o
  * recálculo server-side de `valor_calculado`. ESCRITORIO é valor FIXO por dia
  * presencial (não por km) — por isso não cabe a forma `{ tipo, valor_por_km }`.

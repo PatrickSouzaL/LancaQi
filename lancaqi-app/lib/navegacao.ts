@@ -15,6 +15,7 @@ import {
   PlusCircle,
   ShieldCheck,
   SlidersHorizontal,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +29,7 @@ export const NAV_ADMIN: ItemNavegacao[] = [
   { titulo: "Dashboard", href: "/admin/dashboard", icone: LayoutDashboard },
   { titulo: "Novo Lançamento", href: "/admin/lancamento", icone: PlusCircle },
   { titulo: "Auditoria", href: "/admin/auditoria", icone: ShieldCheck },
+  { titulo: "Clientes", href: "/admin/clientes", icone: Users },
   {
     titulo: "Fechamento Quinzenal",
     href: "/admin/fechamento",

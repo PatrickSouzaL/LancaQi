@@ -108,6 +108,43 @@ CREATE POLICY "Atualizacao de despesas" ON public.despesas
 
 CREATE POLICY "Exclusao de despesas" ON public.despesas
     FOR DELETE USING (
-        (auth.uid() = usuario_id AND status = 'PENDENTE') 
+        (auth.uid() = usuario_id AND status = 'PENDENTE')
         OR public.is_admin()
     );
+
+-- ==============================================================================
+-- 6. CLIENTES + VÍNCULO COM DESPESAS (ver Migracao_002_Clientes_e_Despesas_FK)
+-- ==============================================================================
+
+-- Cadastro de clientes. Apenas `nome` é obrigatório.
+CREATE TABLE public.clientes (
+    id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    nome       TEXT NOT NULL,
+    endereco   TEXT,
+    cnpj       TEXT,
+    telefone   TEXT,
+    criado_em  TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
+
+-- Leitura: qualquer autenticado. Escrita: apenas administradores.
+CREATE POLICY "Leitura de clientes para autenticados" ON public.clientes
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Escrita de clientes restrita a admin" ON public.clientes
+    FOR ALL TO authenticated
+    USING (
+        EXISTS (SELECT 1 FROM public.usuarios u WHERE u.id = auth.uid() AND u.is_admin = true)
+    )
+    WITH CHECK (
+        EXISTS (SELECT 1 FROM public.usuarios u WHERE u.id = auth.uid() AND u.is_admin = true)
+    );
+
+-- Vínculo opcional despesa → cliente (ESCRITORIO não tem cliente).
+-- ON DELETE SET NULL preserva o histórico financeiro ao excluir um cliente.
+ALTER TABLE public.despesas
+    ADD COLUMN IF NOT EXISTS cliente_id UUID REFERENCES public.clientes(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_despesas_cliente_id ON public.despesas(cliente_id);
+

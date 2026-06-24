@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { createClient } from "@/lib/supabase/server";
+import { exigirAdmin } from "@/lib/data/guards";
 
 /**
  * Server Actions administrativas. Mesma disciplina de `criarDespesa`:
@@ -11,58 +11,13 @@ import { createClient } from "@/lib/supabase/server";
  * `revalidatePath`. São endpoints POST públicos: NUNCA confiar no cliente.
  *
  * A RLS é a barreira final (policies `is_admin()` em `despesas`/
- * `configuracoes_taxas`); a checagem aqui é defesa em profundidade e dá
- * feedback claro em vez de um erro de RLS opaco.
+ * `configuracoes_taxas`); a checagem aqui (`exigirAdmin`) é defesa em
+ * profundidade e dá feedback claro em vez de um erro de RLS opaco.
  */
 
 export type ActionState =
   | { ok: true; message?: string }
   | { ok: false; error: string };
-
-/** Linha de `usuarios` mínima para a checagem de privilégio. */
-interface PerfilRow {
-  is_admin: boolean;
-}
-
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
-
-type AdminContext =
-  | { ok: false; error: string }
-  | { ok: true; supabase: SupabaseServerClient; userId: string };
-
-/**
- * Garante sessão + privilégio admin. Retorna (discriminado por `ok`) o client
- * autenticado e o id do usuário, ou a mensagem de erro para a action repassar.
- */
-async function exigirAdmin(): Promise<AdminContext> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { ok: false, error: "Sessão expirada. Faça login novamente." };
-  }
-
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  const perfil = data as PerfilRow | null;
-  if (error || !perfil?.is_admin) {
-    console.error(
-      `exigirAdmin: acesso negado (user=${user.id}, is_admin=${perfil?.is_admin}).`,
-      error?.message,
-    );
-    return { ok: false, error: "Ação restrita a administradores." };
-  }
-
-  return { ok: true, supabase, userId: user.id };
-}
 
 /** Revalida todas as telas afetadas por uma mudança de status de despesa. */
 function revalidarDespesas() {
