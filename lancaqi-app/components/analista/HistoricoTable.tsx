@@ -50,36 +50,36 @@ export function HistoricoTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Data</TableHead>
-              <TableHead>Origem</TableHead>
-              <TableHead>Destino</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead className="text-right">KM</TableHead>
-              <TableHead className="text-right">Valor (R$)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="text-center">Data</TableHead>
+              <TableHead className="text-center">Origem</TableHead>
+              <TableHead className="text-center">Destino</TableHead>
+              <TableHead className="text-center">Tipo</TableHead>
+              <TableHead className="text-center">KM</TableHead>
+              <TableHead className="text-center">Valor (R$)</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {despesas.map((d) => (
               <TableRow key={d.id}>
-                <TableCell className="tabular-nums">
+                <TableCell className="text-center tabular-nums">
                   {formatarData(d.data)}
                 </TableCell>
-                <TableCell>{d.origem}</TableCell>
-                <TableCell>{d.destino}</TableCell>
-                <TableCell>{labelTipo(d.tipo)}</TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className="text-center">{d.origem}</TableCell>
+                <TableCell className="text-center">{d.destino}</TableCell>
+                <TableCell className="text-center">{labelTipo(d.tipo)}</TableCell>
+                <TableCell className="text-center tabular-nums">
                   {formatarKm(d.quantidade_km)}
                 </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
+                <TableCell className="text-center font-medium tabular-nums text-primary">
                   {formatarBRL(d.valor_calculado)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                   <StatusBadge status={d.status} />
                 </TableCell>
-                <TableCell className="text-right">
-                  <HistoricoAcoes despesa={d} taxas={taxas} />
+                <TableCell className="text-center">
+                  <HistoricoAcoes despesa={d} taxas={taxas} className="justify-center" />
                 </TableCell>
               </TableRow>
             ))}

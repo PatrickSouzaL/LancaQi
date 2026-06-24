@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { parseISO, subYears, isAfter, isBefore, startOfDay } from "date-fns";
 
 import { calcularPrevia } from "@/lib/calculo";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +21,26 @@ export type CriarDespesaState =
  * Para deslocamentos até o cliente (MOTO/CARRO) a quilometragem é obrigatória.
  */
 const DespesaCamposSchema = z.object({
-  data: z.string().min(1, "Informe a data."),
+  data: z
+    .string()
+    .min(1, "Informe a data.")
+    .refine(
+      (val) => {
+        try {
+          const parsedDate = parseISO(val);
+          if (isNaN(parsedDate.getTime())) return false;
+          const today = startOfDay(new Date());
+          const oneYearAgo = startOfDay(subYears(new Date(), 1));
+          const target = startOfDay(parsedDate);
+          return !isAfter(target, today) && !isBefore(target, oneYearAgo);
+        } catch {
+          return false;
+        }
+      },
+      {
+        message: "A data não pode ser no futuro e deve ter no máximo 1 ano para trás.",
+      }
+    ),
   tipo: z.enum(["ESCRITORIO", "MOTO", "CARRO"]),
   origem: z.string().trim().max(255).optional(),
   destino: z.string().trim().max(255).optional(),

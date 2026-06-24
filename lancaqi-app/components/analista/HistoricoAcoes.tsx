@@ -15,6 +15,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { ConfiguracoesTaxas, Despesa } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 /**
  * Ações do analista sobre a própria despesa: editar e excluir — disponíveis
@@ -24,9 +25,11 @@ import type { ConfiguracoesTaxas, Despesa } from "@/lib/types";
 export function HistoricoAcoes({
   despesa,
   taxas,
+  className,
 }: {
   despesa: Despesa;
   taxas: ConfiguracoesTaxas;
+  className?: string;
 }) {
   const [aberto, setAberto] = useState(false);
 
@@ -34,7 +37,7 @@ export function HistoricoAcoes({
   if (despesa.status !== "PENDENTE") return null;
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className={cn("flex items-center justify-end gap-1", className)}>
       <Sheet open={aberto} onOpenChange={setAberto}>
         <SheetTrigger asChild>
           <Button

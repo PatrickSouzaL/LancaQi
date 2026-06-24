@@ -1,8 +1,10 @@
-import { ReceiptText } from "lucide-react";
+import Link from "next/link";
+import { PlusCircle, ReceiptText } from "lucide-react";
 
 import { PageHeading } from "@/components/PageHeading";
 import { EmptyState } from "@/components/analista/EmptyState";
 import { HistoricoTable } from "@/components/analista/HistoricoTable";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getDespesasDoAnalista, getTaxasVigentes } from "@/lib/data/analista";
 
@@ -19,6 +21,14 @@ export default async function HistoricoPage() {
       <PageHeading
         titulo="Histórico"
         descricao="Acompanhe o status de todos os seus reembolsos."
+        acao={
+          <Button asChild className="h-11">
+            <Link href="/analista/lancamento">
+              <PlusCircle className="size-4" />
+              Novo Lançamento
+            </Link>
+          </Button>
+        }
       />
       <Card className="shadow-sm">
         <CardContent className="pt-6">

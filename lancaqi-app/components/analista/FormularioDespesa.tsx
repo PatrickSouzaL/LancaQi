@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { format, parseISO, subYears, isAfter, isBefore, startOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 import { criarDespesa, editarDespesa } from "@/app/actions/despesas-actions";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { calcularPrevia, exigeKm } from "@/lib/calculo";
 import { formatarBRL } from "@/lib/format";
 import type { ConfiguracoesTaxas, Despesa, TipoDespesa } from "@/lib/types";
@@ -64,6 +68,7 @@ export function FormularioDespesa({
   const editando = despesa !== undefined;
 
   const [data, setData] = useState(despesa?.data ?? "");
+  const [popoverAberto, setPopoverAberto] = useState(false);
   const [tipo, setTipo] = useState<TipoDespesa | "">(despesa?.tipo ?? "");
   const [origem, setOrigem] = useState(valorInicial(despesa?.origem));
   const [destino, setDestino] = useState(valorInicial(despesa?.destino));
@@ -87,7 +92,23 @@ export function FormularioDespesa({
 
   function validar(): Erros {
     const e: Erros = {};
-    if (!data) e.data = "Informe a data.";
+    if (!data) {
+      e.data = "Informe a data.";
+    } else {
+      try {
+        const parsedDate = parseISO(data);
+        const today = startOfDay(new Date());
+        const oneYearAgo = startOfDay(subYears(new Date(), 1));
+        const target = startOfDay(parsedDate);
+        if (isAfter(target, today)) {
+          e.data = "A data não pode ser no futuro.";
+        } else if (isBefore(target, oneYearAgo)) {
+          e.data = "A data não pode ter mais de 1 ano para trás.";
+        }
+      } catch {
+        e.data = "Data inválida.";
+      }
+    }
     if (tipo === "") e.tipo = "Selecione o tipo.";
     // Origem/destino/KM só são exigidos em deslocamentos até o cliente.
     if (mostrarCliente) {
@@ -169,14 +190,47 @@ export function FormularioDespesa({
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="grid gap-2">
         <Label htmlFor="data">Data do deslocamento</Label>
-        <Input
-          id="data"
-          type="date"
-          value={data}
-          onChange={(e) => setData(e.target.value)}
-          className="h-11"
-          aria-invalid={Boolean(erros.data)}
-        />
+        <Popover open={popoverAberto} onOpenChange={setPopoverAberto}>
+          <PopoverTrigger asChild>
+            <Button
+              id="data"
+              variant="outline"
+              type="button"
+              className={cn(
+                "h-11 w-full justify-start text-left font-normal border-input bg-transparent px-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                !data && "text-muted-foreground",
+                erros.data && "border-destructive focus-visible:ring-destructive/20"
+              )}
+              aria-invalid={Boolean(erros.data)}
+            >
+              <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
+              {data ? (
+                format(parseISO(data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+              ) : (
+                <span>Selecione a data</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={data ? parseISO(data) : undefined}
+              onSelect={(date) => {
+                if (date) {
+                  setData(format(date, "yyyy-MM-dd"));
+                  setPopoverAberto(false);
+                }
+              }}
+              disabled={(date) => {
+                const today = startOfDay(new Date());
+                const oneYearAgo = startOfDay(subYears(new Date(), 1));
+                const target = startOfDay(date);
+                return isAfter(target, today) || isBefore(target, oneYearAgo);
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
         {erros.data && <p className="text-sm text-destructive">{erros.data}</p>}
       </div>
 

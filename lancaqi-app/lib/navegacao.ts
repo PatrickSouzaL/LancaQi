@@ -46,7 +46,6 @@ export const NAV_ADMIN: ItemNavegacao[] = [
  */
 export const NAV_ANALISTA: ItemNavegacao[] = [
   { titulo: "Dashboard", href: "/analista/dashboard", icone: LayoutDashboard },
-  { titulo: "Novo Lançamento", href: "/analista/lancamento", icone: PlusCircle },
   { titulo: "Histórico", href: "/analista/historico", icone: History },
 ];
 
