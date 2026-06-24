@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { getCanonicalBaseURL } from "@/lib/url";
 
 /** Logotipo Microsoft (4 quadrados) — SVG inline, sem dependências. */
 function MicrosoftIcon() {
@@ -33,10 +34,11 @@ export function LoginButton({ next }: { next?: string }) {
 
     const params = new URLSearchParams();
     if (next) params.set("next", next);
-    // URL canônica (NEXT_PUBLIC_SITE_URL) tem prioridade sobre o domínio atual
-    // — assim o `redirectTo` bate com a allowlist do Supabase mesmo em previews.
-    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-    const redirectTo = `${base.replace(/\/+$/, "")}/auth/callback${
+    // URL canônica (NEXT_PUBLIC_SITE_URL) tem prioridade; sem ela, o domínio
+    // atual. Nunca a URL específica do deploy — o callback precisa rodar no
+    // mesmo host onde o cookie de sessão será gravado.
+    const base = getCanonicalBaseURL() ?? window.location.origin;
+    const redirectTo = `${base}/auth/callback${
       params.toString() ? `?${params.toString()}` : ""
     }`;
 

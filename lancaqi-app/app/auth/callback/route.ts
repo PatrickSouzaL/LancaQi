@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { rotaInicialPorPapel } from "@/lib/navegacao";
-import { getBaseURL } from "@/lib/url";
+import { getCanonicalBaseURL } from "@/lib/url";
 
 /**
  * Callback OAuth (padrão @supabase/ssr): troca o `code` por uma sessão e
@@ -45,19 +45,18 @@ export async function GET(request: Request) {
         if (next && next.startsWith(prefixoArea)) destino = next;
       }
 
-      // Base do redirect final. Em produção, a URL canônica (env) tem
-      // prioridade; depois o host encaminhado pelo load balancer; por fim, a
-      // origem do request. Em dev, usa a origem local (localhost).
-      const isLocal = process.env.NODE_ENV === "development";
-      let base = origin;
-      if (!isLocal) {
-        const forwardedHost = request.headers.get("x-forwarded-host");
-        if (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL) {
-          base = getBaseURL();
-        } else if (forwardedHost) {
-          base = `https://${forwardedHost}`;
-        }
-      }
+      // Base do redirect final. Prioridade: URL canônica (env) → host REAL da
+      // requisição (x-forwarded-host) → origem do request. Nunca a URL do
+      // deploy: o redirect TEM que ficar no mesmo host onde o cookie de sessão
+      // acabou de ser gravado, senão o usuário cai deslogado no /login.
+      const canonica = getCanonicalBaseURL();
+      const forwardedHost = request.headers.get("x-forwarded-host");
+      const forwardedProto =
+        request.headers.get("x-forwarded-proto") ?? "https";
+      const base =
+        canonica ??
+        (forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin);
+
       return NextResponse.redirect(`${base}${destino}`);
     }
 

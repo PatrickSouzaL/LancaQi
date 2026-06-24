@@ -1,23 +1,20 @@
 /**
- * Origem pública canônica da aplicação — base de todos os redirects de auth.
+ * URL pública canônica da aplicação — base dos redirects de autenticação.
  *
- * Prioridade:
- *   1. NEXT_PUBLIC_SITE_URL  → defina na Vercel com o domínio de produção
- *      (ex.: https://lancaqi.vercel.app). É o valor enviado como `redirectTo`
- *      no OAuth, então DEVE constar na allowlist de Redirect URLs do Supabase.
- *   2. NEXT_PUBLIC_VERCEL_URL → URL automática do deploy (sem protocolo).
- *   3. http://localhost:3000  → desenvolvimento.
+ * Retorna `NEXT_PUBLIC_SITE_URL` normalizada (https + sem barra final), ou
+ * `null` se não estiver definida. Defina-a na Vercel com o domínio de produção
+ * (ex.: https://lanca-qi.vercel.app).
  *
- * Como lê apenas variáveis `NEXT_PUBLIC_*`, funciona no servidor e no cliente
- * (são inlinadas no bundle). Sempre retorna sem barra final.
+ * IMPORTANTE: NÃO usamos `VERCEL_URL`/`NEXT_PUBLIC_VERCEL_URL` como fallback —
+ * elas apontam para o host ESPECÍFICO DO DEPLOY, diferente do domínio canônico.
+ * Redirecionar para lá após o login descarta o cookie de sessão (gravado no
+ * domínio canônico) e derruba o usuário de volta para o /login. Quando a URL
+ * canônica não existe, quem chama deve cair no host real da requisição
+ * (callback) ou no `window.location.origin` (cliente).
  */
-export function getBaseURL(): string {
-  let url =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_VERCEL_URL ||
-    "http://localhost:3000";
-
-  // NEXT_PUBLIC_VERCEL_URL vem sem protocolo (ex.: "lancaqi.vercel.app").
-  url = url.startsWith("http") ? url : `https://${url}`;
-  return url.replace(/\/+$/, "");
+export function getCanonicalBaseURL(): string | null {
+  const url = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!url) return null;
+  const comProtocolo = url.startsWith("http") ? url : `https://${url}`;
+  return comProtocolo.replace(/\/+$/, "");
 }
