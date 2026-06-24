@@ -33,7 +33,10 @@ export function LoginButton({ next }: { next?: string }) {
 
     const params = new URLSearchParams();
     if (next) params.set("next", next);
-    const redirectTo = `${window.location.origin}/auth/callback${
+    // URL canônica (NEXT_PUBLIC_SITE_URL) tem prioridade sobre o domínio atual
+    // — assim o `redirectTo` bate com a allowlist do Supabase mesmo em previews.
+    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const redirectTo = `${base.replace(/\/+$/, "")}/auth/callback${
       params.toString() ? `?${params.toString()}` : ""
     }`;
 

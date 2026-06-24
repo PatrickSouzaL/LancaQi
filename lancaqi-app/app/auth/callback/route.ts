@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { rotaInicialPorPapel } from "@/lib/navegacao";
+import { getBaseURL } from "@/lib/url";
 
 /**
  * Callback OAuth (padrão @supabase/ssr): troca o `code` por uma sessão e
@@ -44,16 +45,20 @@ export async function GET(request: Request) {
         if (next && next.startsWith(prefixoArea)) destino = next;
       }
 
-      // Em produção atrás de load balancer, respeita o host encaminhado.
-      const forwardedHost = request.headers.get("x-forwarded-host");
+      // Base do redirect final. Em produção, a URL canônica (env) tem
+      // prioridade; depois o host encaminhado pelo load balancer; por fim, a
+      // origem do request. Em dev, usa a origem local (localhost).
       const isLocal = process.env.NODE_ENV === "development";
-      if (isLocal) {
-        return NextResponse.redirect(`${origin}${destino}`);
+      let base = origin;
+      if (!isLocal) {
+        const forwardedHost = request.headers.get("x-forwarded-host");
+        if (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL) {
+          base = getBaseURL();
+        } else if (forwardedHost) {
+          base = `https://${forwardedHost}`;
+        }
       }
-      if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${destino}`);
-      }
-      return NextResponse.redirect(`${origin}${destino}`);
+      return NextResponse.redirect(`${base}${destino}`);
     }
 
     console.error("Falha ao trocar code por sessão:", error.message);
