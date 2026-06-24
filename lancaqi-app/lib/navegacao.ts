@@ -50,6 +50,15 @@ export const NAV_ANALISTA: ItemNavegacao[] = [
   { titulo: "Histórico", href: "/analista/historico", icone: History },
 ];
 
+/**
+ * Rota inicial do usuário resolvida pelo papel no banco (`usuarios.is_admin`).
+ * Fonte única de verdade do roteamento pós-login — usada na raiz `/` e no
+ * callback OAuth. Sem `is_admin` (padrão de novos usuários) → área do analista.
+ */
+export function rotaInicialPorPapel(isAdmin: boolean): string {
+  return isAdmin ? "/admin/dashboard" : "/analista/dashboard";
+}
+
 /** Resolve o título da seção atual a partir do pathname (match por prefixo). */
 export function tituloDaRota(pathname: string): string {
   const item = [...NAV_ADMIN, ...NAV_ANALISTA].find(

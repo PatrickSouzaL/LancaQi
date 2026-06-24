@@ -4,11 +4,15 @@ import { PageHeading } from "@/components/PageHeading";
 import { EmptyState } from "@/components/analista/EmptyState";
 import { HistoricoTable } from "@/components/analista/HistoricoTable";
 import { Card, CardContent } from "@/components/ui/card";
-import { getDespesasDoAnalista } from "@/lib/data/analista";
+import { getDespesasDoAnalista, getTaxasVigentes } from "@/lib/data/analista";
 
 export default async function HistoricoPage() {
   // Isolamento: apenas as despesas do próprio analista (no alvo, via RLS).
-  const despesas = await getDespesasDoAnalista();
+  // As taxas alimentam a prévia do formulário de edição (recálculo é server-side).
+  const [despesas, taxas] = await Promise.all([
+    getDespesasDoAnalista(),
+    getTaxasVigentes(),
+  ]);
 
   return (
     <>
@@ -27,7 +31,7 @@ export default async function HistoricoPage() {
               acaoHref="/analista/lancamento"
             />
           ) : (
-            <HistoricoTable despesas={despesas} />
+            <HistoricoTable despesas={despesas} taxas={taxas} />
           )}
         </CardContent>
       </Card>

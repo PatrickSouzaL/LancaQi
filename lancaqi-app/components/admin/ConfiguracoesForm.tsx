@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { salvarTaxas } from "@/app/actions/admin-actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,6 +58,7 @@ export function ConfiguracoesForm({
     taxa_km_carro: String(configuracoes.taxa_km_carro),
   });
   const [erros, setErros] = useState<Partial<Record<CampoTaxa, string>>>({});
+  const [salvando, startTransition] = useTransition();
 
   function validar(valor: string): string | undefined {
     const numero = Number(valor);
@@ -70,6 +74,8 @@ export function ConfiguracoesForm({
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (salvando) return;
+
     const novosErros: Partial<Record<CampoTaxa, string>> = {};
     for (const { campo } of CAMPOS) {
       const erro = validar(valores[campo]);
@@ -78,10 +84,26 @@ export function ConfiguracoesForm({
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
-    console.log("salvar configurações", {
-      valor_fixo_escritorio: Number(valores.valor_fixo_escritorio),
-      taxa_km_moto: Number(valores.taxa_km_moto),
-      taxa_km_carro: Number(valores.taxa_km_carro),
+    // O valor final é revalidado no servidor (Zod + is_admin); o cliente só
+    // monta o FormData. UPDATE na linha única — nunca INSERT.
+    const fd = new FormData();
+    fd.set("valor_fixo_escritorio", valores.valor_fixo_escritorio);
+    fd.set("taxa_km_moto", valores.taxa_km_moto);
+    fd.set("taxa_km_carro", valores.taxa_km_carro);
+
+    startTransition(async () => {
+      const resultado = await salvarTaxas(fd);
+      if (resultado.ok) {
+        toast.success("Taxas atualizadas com sucesso.");
+        return;
+      }
+      toast.error(resultado.error);
+      if (resultado.fieldErrors) {
+        const mapeados = resultado.fieldErrors as Partial<
+          Record<CampoTaxa, string>
+        >;
+        setErros((prev) => ({ ...prev, ...mapeados }));
+      }
     });
   }
 
@@ -116,7 +138,16 @@ export function ConfiguracoesForm({
           ))}
         </CardContent>
         <CardFooter>
-          <Button type="submit">Salvar Configurações</Button>
+          <Button type="submit" disabled={salvando}>
+            {salvando ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar Configurações"
+            )}
+          </Button>
         </CardFooter>
       </form>
     </Card>

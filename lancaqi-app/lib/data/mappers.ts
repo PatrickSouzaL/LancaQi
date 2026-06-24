@@ -32,6 +32,14 @@ export interface DespesaRow {
 export const DESPESA_SELECT =
   "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, criado_em, usuarios ( nome )";
 
+/**
+ * Variante com `!inner` no join: ao filtrar por `usuarios.nome` (busca server-
+ * side com `ilike`), o inner join faz o PostgREST restringir as linhas-pai de
+ * `despesas` — com o join padrão (left) o filtro não eliminaria as despesas.
+ */
+export const DESPESA_SELECT_BUSCA =
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, criado_em, usuarios!inner ( nome )";
+
 function nomeDoUsuario(usuarios: DespesaRow["usuarios"]): string {
   if (!usuarios) return "—";
   const u = Array.isArray(usuarios) ? usuarios[0] : usuarios;

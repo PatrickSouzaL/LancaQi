@@ -25,11 +25,15 @@ interface ItemKpi {
 function VariacaoBadge({
   variacao,
   positiva,
+  sobe,
 }: {
   variacao: string;
+  /** `true` quando a variação é boa para o negócio (define a cor). */
   positiva: boolean;
+  /** Direção numérica da variação (define a seta), independente de bom/ruim. */
+  sobe: boolean;
 }) {
-  const Icone = positiva ? ArrowUpRight : ArrowDownRight;
+  const Icone = sobe ? ArrowUpRight : ArrowDownRight;
   return (
     <span
       className={cn(
@@ -45,35 +49,55 @@ function VariacaoBadge({
   );
 }
 
+/** "+12,4%" / "-3,1%" — sinal explícito, separador pt-BR, 1 casa. */
+function pct(valor: number): string {
+  const sinal = valor > 0 ? "+" : "";
+  return `${sinal}${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+}
+
+/** "+2" / "-1" / "0" — variação absoluta com sinal. */
+function inteiro(valor: number): string {
+  return valor > 0 ? `+${valor}` : String(valor);
+}
+
+interface ItemKpiCompleto extends ItemKpi {
+  sobe: boolean;
+}
+
 export function SummaryCards({ kpis }: { kpis: DashboardKpis }) {
   // Semântica de "bom/ruim" conforme Visao_Administrador.md → Cards de Indicadores.
-  const itens: ItemKpi[] = [
+  // `positiva` = bom para o negócio (cor); `sobe` = direção numérica (seta).
+  const itens: ItemKpiCompleto[] = [
     {
       titulo: "Total Gasto (Quinzena)",
       valor: formatarBRL(kpis.totalGastoQuinzena),
-      variacao: `+${kpis.variacaoGastoPct.toLocaleString("pt-BR")}%`,
-      positiva: false, // alta de gasto = ruim
+      variacao: pct(kpis.variacaoGastoPct),
+      positiva: kpis.variacaoGastoPct <= 0, // alta de gasto = ruim
+      sobe: kpis.variacaoGastoPct >= 0,
       icone: Wallet,
     },
     {
       titulo: "Total de KM Rodado",
       valor: formatarKm(kpis.totalKm),
-      variacao: `+${kpis.variacaoKmPct.toLocaleString("pt-BR")}%`,
-      positiva: true,
+      variacao: pct(kpis.variacaoKmPct),
+      positiva: kpis.variacaoKmPct >= 0,
+      sobe: kpis.variacaoKmPct >= 0,
       icone: Route,
     },
     {
       titulo: "Despesas Pendentes",
       valor: String(kpis.despesasPendentes),
-      variacao: `${kpis.variacaoPendentes}`,
+      variacao: inteiro(kpis.variacaoPendentes),
       positiva: kpis.variacaoPendentes <= 0, // queda = bom
+      sobe: kpis.variacaoPendentes >= 0,
       icone: Clock,
     },
     {
       titulo: "Analistas Ativos",
       valor: String(kpis.analistasAtivos),
-      variacao: `+${kpis.variacaoAnalistas}`,
-      positiva: true,
+      variacao: inteiro(kpis.variacaoAnalistas),
+      positiva: kpis.variacaoAnalistas >= 0,
+      sobe: kpis.variacaoAnalistas >= 0,
       icone: Users,
     },
   ];
@@ -97,6 +121,7 @@ export function SummaryCards({ kpis }: { kpis: DashboardKpis }) {
               <VariacaoBadge
                 variacao={item.variacao}
                 positiva={item.positiva}
+                sobe={item.sobe}
               />
             </CardContent>
           </Card>

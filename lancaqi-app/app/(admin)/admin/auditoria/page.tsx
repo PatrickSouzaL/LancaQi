@@ -1,10 +1,17 @@
 import { PageHeading } from "@/components/PageHeading";
 import { AuditoriaClient } from "@/components/admin/AuditoriaClient";
-import { getDespesas } from "@/lib/data/despesas";
+import { getDespesasParaAuditoria } from "@/lib/data/despesas";
 
-export default async function AuditoriaPage() {
-  // Admin enxerga todas as despesas (no alvo, via RLS `is_admin()`).
-  const despesas = await getDespesas();
+export default async function AuditoriaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  // Busca server-side por nome do analista (`ilike`); a lista chega já restrita
+  // pela RLS `is_admin()` e pelo termo — não há filtragem no cliente.
+  const { q } = await searchParams;
+  const termo = (q ?? "").trim();
+  const despesas = await getDespesasParaAuditoria(termo);
 
   return (
     <>
@@ -12,7 +19,7 @@ export default async function AuditoriaPage() {
         titulo="Auditoria"
         descricao="Revise e aprove os lançamentos dos analistas."
       />
-      <AuditoriaClient despesas={despesas} />
+      <AuditoriaClient despesas={despesas} termoInicial={termo} />
     </>
   );
 }

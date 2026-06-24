@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
-import { criarDespesa } from "@/app/actions/despesas-actions";
+import { criarDespesa, editarDespesa } from "@/app/actions/despesas-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,8 +18,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { calcularPrevia, exigeKm } from "@/lib/calculo";
 import { formatarBRL } from "@/lib/format";
-import type { ConfiguracoesTaxas, TipoDespesa } from "@/lib/types";
+import type { ConfiguracoesTaxas, Despesa, TipoDespesa } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/** "—" do mapper (origem/destino nulos) não é um valor editável real. */
+function valorInicial(v?: string): string {
+  return v && v !== "—" ? v : "";
+}
 
 interface OpcaoTipo {
   valor: TipoDespesa;
@@ -41,18 +47,32 @@ type Erros = Partial<Record<"data" | "tipo" | "origem" | "destino" | "km", strin
  * - Prévia do valor recalculada em tempo real (apenas simulação visual; o
  *   back-end refaz o cálculo — o valor do cliente nunca é confiado).
  * - Submit com spinner e botão desabilitado (previne duplo clique).
+ *
+ * Reutilizável para EDIÇÃO: passando `despesa`, o formulário inicia preenchido
+ * e o submit chama `editarDespesa` (em vez de `criarDespesa`); `onSucesso`
+ * permite ao container (ex.: um Sheet) fechar após salvar.
  */
-export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
-  const [data, setData] = useState("");
-  const [tipo, setTipo] = useState<TipoDespesa | "">("");
-  const [origem, setOrigem] = useState("");
-  const [destino, setDestino] = useState("");
-  const [km, setKm] = useState("");
-  const [observacao, setObservacao] = useState("");
+export function FormularioDespesa({
+  taxas,
+  despesa,
+  onSucesso,
+}: {
+  taxas: ConfiguracoesTaxas;
+  despesa?: Despesa;
+  onSucesso?: () => void;
+}) {
+  const editando = despesa !== undefined;
+
+  const [data, setData] = useState(despesa?.data ?? "");
+  const [tipo, setTipo] = useState<TipoDespesa | "">(despesa?.tipo ?? "");
+  const [origem, setOrigem] = useState(valorInicial(despesa?.origem));
+  const [destino, setDestino] = useState(valorInicial(despesa?.destino));
+  const [km, setKm] = useState(
+    despesa && despesa.quantidade_km > 0 ? String(despesa.quantidade_km) : "",
+  );
+  const [observacao, setObservacao] = useState(despesa?.observacao ?? "");
 
   const [erros, setErros] = useState<Erros>({});
-  const [erroServidor, setErroServidor] = useState<string | null>(null);
-  const [sucesso, setSucesso] = useState(false);
   const [enviando, startTransition] = useTransition();
 
   // Deslocamento até o cliente (Moto/Carro): exige origem, destino e KM.
@@ -102,7 +122,6 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
     ev.preventDefault();
     if (enviando) return; // previne duplo clique
 
-    setErroServidor(null);
     const novosErros = validar();
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
@@ -110,6 +129,7 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
     // Monta o FormData enviado à action. O `valor_calculado` NÃO é enviado —
     // o servidor recalcula a partir das taxas oficiais.
     const fd = new FormData();
+    if (editando) fd.set("id", despesa.id);
     fd.set("data", data);
     fd.set("tipo", tipo);
     if (mostrarCliente) {
@@ -119,15 +139,21 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
     }
     if (observacao.trim()) fd.set("observacao", observacao.trim());
 
-    setSucesso(false);
     startTransition(async () => {
-      const resultado = await criarDespesa(fd);
+      const resultado = editando
+        ? await editarDespesa(fd)
+        : await criarDespesa(fd);
       if (resultado.ok) {
-        setSucesso(true);
-        limpar();
+        if (editando) {
+          toast.success("Despesa atualizada.");
+          onSucesso?.();
+        } else {
+          toast.success("Lançamento registrado com sucesso.");
+          limpar();
+        }
         return;
       }
-      setErroServidor(resultado.error);
+      toast.error(resultado.error);
       if (resultado.fieldErrors) {
         const mapeados: Erros = {};
         for (const [campo, msg] of Object.entries(resultado.fieldErrors)) {
@@ -141,26 +167,6 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {sucesso && (
-        <div
-          role="status"
-          className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
-        >
-          <CheckCircle2 className="size-4" />
-          Lançamento registrado com sucesso.
-        </div>
-      )}
-
-      {erroServidor && (
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        >
-          <AlertCircle className="size-4" />
-          {erroServidor}
-        </div>
-      )}
-
       <div className="grid gap-2">
         <Label htmlFor="data">Data do deslocamento</Label>
         <Input
@@ -302,8 +308,10 @@ export function FormularioDespesa({ taxas }: { taxas: ConfiguracoesTaxas }) {
         {enviando ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            Registrando...
+            {editando ? "Salvando..." : "Registrando..."}
           </>
+        ) : editando ? (
+          "Salvar Alterações"
         ) : (
           "Registrar Lançamento"
         )}

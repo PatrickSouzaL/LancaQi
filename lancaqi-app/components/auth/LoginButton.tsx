@@ -55,12 +55,7 @@ export function LoginButton({ next }: { next?: string }) {
 
   return (
     <div className="space-y-3">
-      <Button
-        onClick={entrar}
-        disabled={carregando}
-        className="h-11 w-full"
-        variant="outline"
-      >
+      <Button onClick={entrar} disabled={carregando} className="h-11 w-full">
         {carregando ? (
           <>
             <Loader2 className="size-4 animate-spin" />
@@ -69,7 +64,7 @@ export function LoginButton({ next }: { next?: string }) {
         ) : (
           <>
             <MicrosoftIcon />
-            Entrar com a Microsoft
+            Entrar com Microsoft
           </>
         )}
       </Button>

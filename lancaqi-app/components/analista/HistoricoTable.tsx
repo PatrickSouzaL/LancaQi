@@ -1,3 +1,4 @@
+import { HistoricoAcoes } from "@/components/analista/HistoricoAcoes";
 import {
   Table,
   TableBody,
@@ -7,7 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatarBRL, formatarData, formatarKm, labelStatus, labelTipo } from "@/lib/format";
-import type { Despesa, StatusDespesa } from "@/lib/types";
+import type { ConfiguracoesTaxas, Despesa, StatusDespesa } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // Classes exatas das badges de status (UI_UX_Guidelines §2.3).
@@ -35,7 +36,13 @@ function StatusBadge({ status }: { status: StatusDespesa }) {
  * empilhados no mobile (UI_UX_Guidelines §2.3). Datas/textos à esquerda;
  * KM e valores à direita com `tabular-nums`.
  */
-export function HistoricoTable({ despesas }: { despesas: Despesa[] }) {
+export function HistoricoTable({
+  despesas,
+  taxas,
+}: {
+  despesas: Despesa[];
+  taxas: ConfiguracoesTaxas;
+}) {
   return (
     <>
       {/* Desktop */}
@@ -50,6 +57,7 @@ export function HistoricoTable({ despesas }: { despesas: Despesa[] }) {
               <TableHead className="text-right">KM</TableHead>
               <TableHead className="text-right">Valor (R$)</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -69,6 +77,9 @@ export function HistoricoTable({ despesas }: { despesas: Despesa[] }) {
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={d.status} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <HistoricoAcoes despesa={d} taxas={taxas} />
                 </TableCell>
               </TableRow>
             ))}
@@ -106,6 +117,11 @@ export function HistoricoTable({ despesas }: { despesas: Despesa[] }) {
                 {formatarBRL(d.valor_calculado)}
               </span>
             </div>
+            {d.status === "PENDENTE" && (
+              <div className="mt-2 border-t pt-2">
+                <HistoricoAcoes despesa={d} taxas={taxas} />
+              </div>
+            )}
           </li>
         ))}
       </ul>

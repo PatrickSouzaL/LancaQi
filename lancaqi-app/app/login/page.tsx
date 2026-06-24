@@ -23,16 +23,18 @@ export default async function LoginPage({
   return (
     <main className="flex flex-1 items-center justify-center bg-background px-4 py-16">
       <Card className="w-full max-w-sm shadow-sm">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <CardHeader className="items-center space-y-3 text-center">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <MapPinned className="size-6" />
           </div>
-          <CardTitle className="text-2xl font-semibold tracking-tight">
-            Entrar no LançaQi
-          </CardTitle>
-          <CardDescription>
-            Use sua conta corporativa Microsoft para acessar.
-          </CardDescription>
+          <div className="space-y-1.5">
+            <CardTitle className="text-2xl font-semibold tracking-tight">
+              LançaQi
+            </CardTitle>
+            <CardDescription>
+              Faça login para gerenciar seus deslocamentos.
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <LoginButton next={redirectTo} />

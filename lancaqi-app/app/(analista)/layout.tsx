@@ -1,9 +1,8 @@
 import { MapPinned } from "lucide-react";
 
 import { AnalistaNav } from "@/components/analista/AnalistaNav";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AnalistaUserMenu } from "@/components/analista/AnalistaUserMenu";
 import { getUsuarioPerfil } from "@/lib/data/auth";
-import { iniciais } from "@/lib/format";
 
 /**
  * Layout do Analista (Server Component): topbar minimalista focada no usuário
@@ -33,19 +32,7 @@ export default async function AnalistaLayout({
 
           <AnalistaNav />
 
-          <div className="flex items-center gap-2">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-none">
-                {analista.nome}
-              </p>
-              <p className="text-xs text-muted-foreground">Analista</p>
-            </div>
-            <Avatar className="size-9">
-              <AvatarFallback className="bg-primary/10 text-sm text-primary">
-                {iniciais(analista.nome)}
-              </AvatarFallback>
-            </Avatar>
-          </div>
+          <AnalistaUserMenu nome={analista.nome} email={analista.email} />
         </div>
       </header>
 

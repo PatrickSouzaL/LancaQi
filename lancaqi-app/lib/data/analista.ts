@@ -8,6 +8,7 @@ import {
   type DespesaRow,
 } from "@/lib/data/mappers";
 import { createClient } from "@/lib/supabase/server";
+import { quinzenaAtual, type Periodo } from "@/lib/periodo";
 import type { ConfiguracoesTaxas, Despesa } from "@/lib/types";
 
 /**
@@ -21,15 +22,24 @@ export async function getTaxasVigentes(): Promise<ConfiguracoesTaxas> {
   return getConfiguracoesTaxas();
 }
 
-export async function getDespesasDoAnalista(): Promise<Despesa[]> {
+/** Despesas do analista; sem `periodo` retorna o histórico completo. */
+export async function getDespesasDoAnalista(
+  periodo?: Periodo,
+): Promise<Despesa[]> {
   const perfil = await getUsuarioPerfil();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("despesas")
     .select(DESPESA_SELECT)
     .eq("usuario_id", perfil.id)
     .order("criado_em", { ascending: false });
+
+  if (periodo) {
+    query = query.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error(
@@ -49,7 +59,8 @@ export interface ResumoAnalista {
 }
 
 export async function getResumoAnalista(): Promise<ResumoAnalista> {
-  const despesas = await getDespesasDoAnalista();
+  // O resumo do dashboard é da quinzena atual; o histórico mostra tudo.
+  const despesas = await getDespesasDoAnalista(quinzenaAtual());
   return despesas.reduce<ResumoAnalista>(
     (acc, d) => {
       acc.totalQuinzena += d.valor_calculado;

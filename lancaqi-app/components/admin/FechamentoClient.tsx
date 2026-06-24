@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { marcarLotePago } from "@/app/actions/admin-actions";
 import { AnalistaCell } from "@/components/admin/AnalistaCell";
 import { TipoBadge } from "@/components/admin/StatusBadges";
 import { Button } from "@/components/ui/button";
@@ -34,6 +37,7 @@ import type { Despesa } from "@/lib/types";
  */
 export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [processando, startTransition] = useTransition();
 
   const totalSelecionado = useMemo(
     () =>
@@ -66,6 +70,24 @@ export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
     });
   }
 
+  function pagarSelecionados() {
+    const ids = [...selecionados];
+    if (ids.length === 0) return;
+    startTransition(async () => {
+      const resultado = await marcarLotePago(ids);
+      if (resultado.ok) {
+        toast.success(
+          resultado.atualizadas === 1
+            ? "1 despesa marcada como paga."
+            : `${resultado.atualizadas} despesas marcadas como pagas.`,
+        );
+        setSelecionados(new Set());
+      } else {
+        toast.error(resultado.error);
+      }
+    });
+  }
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex-row items-center justify-between gap-4">
@@ -77,21 +99,24 @@ export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
           </CardDescription>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => console.log("exportar CSV")}
-          >
-            Exportar CSV
+          <Button variant="outline" asChild>
+            {/* Download server-side (GET autenticado): todas as pendentes. */}
+            <a href="/admin/fechamento/export" download>
+              Exportar CSV
+            </a>
           </Button>
           <Button
-            disabled={selecionados.size === 0}
-            onClick={() =>
-              console.log("marcar em lote como PAGOS", {
-                ids: [...selecionados],
-              })
-            }
+            disabled={selecionados.size === 0 || processando}
+            onClick={pagarSelecionados}
           >
-            Marcar como Pagos
+            {processando ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Processando...
+              </>
+            ) : (
+              "Marcar como Pagos"
+            )}
           </Button>
         </div>
       </CardHeader>

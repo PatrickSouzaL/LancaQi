@@ -2,6 +2,7 @@
 
 import { ChevronsUpDown, LogOut, MapPinned } from "lucide-react";
 
+import { sair } from "@/app/actions/auth-actions";
 import { SidebarNavLinks } from "@/components/admin/SidebarNavLinks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -101,10 +102,19 @@ export function AppSidebar({ usuario }: { usuario: Usuario }) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => console.log("logout")}>
-                  <LogOut />
-                  Sair
-                </DropdownMenuItem>
+                {/*
+                  Logout via Server Action (`signOut` + redirect). O <form> com
+                  `action` dá progressive enhancement; `DropdownMenuItem asChild`
+                  preserva os estilos/foco do item enquanto o botão submete.
+                */}
+                <form action={sair}>
+                  <DropdownMenuItem asChild>
+                    <button type="submit" className="w-full cursor-pointer">
+                      <LogOut />
+                      Sair
+                    </button>
+                  </DropdownMenuItem>
+                </form>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

@@ -1,5 +1,11 @@
 "use client";
 
+import { useTransition } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { aprovarDespesa } from "@/app/actions/admin-actions";
+import { ExcluirDespesaButton } from "@/components/ExcluirDespesaButton";
 import { StatusBadge, TipoBadge } from "@/components/admin/StatusBadges";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -42,6 +48,22 @@ export function SheetAuditoria({
   open,
   onOpenChange,
 }: SheetAuditoriaProps) {
+  const [aprovando, startTransition] = useTransition();
+
+  function aprovar() {
+    if (!despesa) return;
+    const id = despesa.id;
+    startTransition(async () => {
+      const resultado = await aprovarDespesa(id);
+      if (resultado.ok) {
+        toast.success(resultado.message ?? "Despesa aprovada.");
+        onOpenChange(false);
+      } else {
+        toast.error(resultado.error);
+      }
+    });
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex flex-col sm:max-w-md">
@@ -87,16 +109,29 @@ export function SheetAuditoria({
 
             <SheetFooter>
               <Button
-                onClick={() =>
-                  console.log("aprovar despesa", { id: despesa.id })
-                }
-                disabled={despesa.status === "PAGO"}
+                onClick={aprovar}
+                disabled={despesa.status === "PAGO" || aprovando}
               >
-                Aprovar Despesa
+                {aprovando ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Aprovando...
+                  </>
+                ) : (
+                  "Aprovar Despesa"
+                )}
               </Button>
               <SheetClose asChild>
-                <Button variant="outline">Cancelar</Button>
+                <Button variant="outline" disabled={aprovando}>
+                  Cancelar
+                </Button>
               </SheetClose>
+              {/* Admin pode excluir qualquer despesa (RLS: policy de DELETE). */}
+              <ExcluirDespesaButton
+                id={despesa.id}
+                onExcluido={() => onOpenChange(false)}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              />
             </SheetFooter>
           </>
         )}
