@@ -33,6 +33,8 @@ export function ClienteCombobox({
   id,
   invalid = false,
   disabled = false,
+  incluirTodos = false,
+  labelTodos = "Todos os clientes",
 }: {
   clientes: OpcaoCliente[];
   value: string | null;
@@ -41,6 +43,9 @@ export function ClienteCombobox({
   id?: string;
   invalid?: boolean;
   disabled?: boolean;
+  /** Mostra uma opção "todos" (limpa o filtro → onChange(null)). Uso em filtros. */
+  incluirTodos?: boolean;
+  labelTodos?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
@@ -58,8 +63,8 @@ export function ClienteCombobox({
     setAberto(next);
   }
 
-  function escolher(opcao: OpcaoCliente) {
-    onChange(opcao.id);
+  function escolher(novoValor: string | null) {
+    onChange(novoValor);
     setAberto(false);
   }
 
@@ -104,6 +109,21 @@ export function ClienteCombobox({
           </div>
         </div>
         <div className="max-h-60 overflow-y-auto p-1">
+          {incluirTodos && busca.trim() === "" && (
+            <button
+              type="button"
+              onClick={() => escolher(null)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent",
+                value === null && "bg-accent",
+              )}
+            >
+              <span className="truncate">{labelTodos}</span>
+              {value === null && (
+                <Check className="size-4 shrink-0 text-primary" />
+              )}
+            </button>
+          )}
           {filtrados.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               Não encontrado.
@@ -113,7 +133,7 @@ export function ClienteCombobox({
               <button
                 key={opcao.id}
                 type="button"
-                onClick={() => escolher(opcao)}
+                onClick={() => escolher(opcao.id)}
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent",
                   opcao.id === value && "bg-accent",

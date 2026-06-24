@@ -37,6 +37,7 @@ export function RecentMovements({ despesas }: { despesas: Despesa[] }) {
                 <TableHead>Analista</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>Destino</TableHead>
                 <TableHead className="text-right">Valor (R$)</TableHead>
               </TableRow>
             </TableHeader>
@@ -51,6 +52,9 @@ export function RecentMovements({ despesas }: { despesas: Despesa[] }) {
                   </TableCell>
                   <TableCell>
                     <TipoBadge tipo={d.tipo} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.destino}
                   </TableCell>
                   <TableCell className="text-right tabular-nums font-medium">
                     {formatarBRL(d.valor_calculado)}

@@ -6,6 +6,7 @@ import { parseISO, subYears, isAfter, isBefore, startOfDay } from "date-fns";
 
 import { calcularPrevia } from "@/lib/calculo";
 import { createClient } from "@/lib/supabase/server";
+import { exigirAdmin } from "@/lib/data/guards";
 import type { ConfiguracoesTaxas } from "@/lib/types";
 
 /**
@@ -348,6 +349,86 @@ export async function editarDespesa(
     return {
       ok: false,
       error: "Esta despesa não pode mais ser editada (já paga ou inexistente).",
+    };
+  }
+
+  revalidarListagens();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Editar despesa como ADMIN (qualquer analista; somente enquanto PENDENTE)
+// ---------------------------------------------------------------------------
+
+/**
+ * Edição administrativa de despesa. Diferente de `editarDespesa`, NÃO filtra por
+ * `usuario_id` (o admin pode editar o lançamento de qualquer analista), mas
+ * mantém `status = 'PENDENTE'` — despesas pagas são imutáveis. O `usuario_id`
+ * da linha NÃO é alterado. Autorização: `exigirAdmin` + RLS (`is_admin()`).
+ */
+export async function editarDespesaAdmin(
+  formData: FormData,
+): Promise<EditarDespesaState> {
+  const ctx = await exigirAdmin();
+  if (!ctx.ok) return ctx;
+  const { supabase } = ctx;
+
+  const parsed = EditarDespesaSchema.safeParse({
+    id: formData.get("id"),
+    data: formData.get("data"),
+    tipo: formData.get("tipo"),
+    quantidade_km: formData.get("quantidade_km") ?? undefined,
+    observacao: formData.get("observacao") ?? undefined,
+    origem_cliente_id: formData.get("origem_cliente_id") ?? undefined,
+    cliente_id: formData.get("cliente_id") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Verifique os campos do formulário.",
+      fieldErrors: fieldErrorsDe(parsed.error),
+    };
+  }
+
+  const { id, data, tipo, quantidade_km } = parsed.data;
+  const ehCliente = ehDeslocamento(parsed.data);
+  const km = ehCliente ? (quantidade_km ?? 0) : 0;
+
+  const taxas = await lerTaxas(supabase);
+  if (!taxas) {
+    return { ok: false, error: "Não foi possível obter as taxas vigentes." };
+  }
+
+  const trajeto = await resolverTrajeto(supabase, parsed.data);
+  if (!trajeto.ok) return { ok: false, error: trajeto.error };
+
+  const valorCalculado = calcularPrevia(tipo, km, taxas);
+
+  const { data: atualizadas, error: updateError } = await supabase
+    .from("despesas")
+    .update({
+      data,
+      origem: trajeto.origem,
+      destino: trajeto.destino,
+      tipo,
+      quantidade_km: ehCliente ? km : null,
+      valor_calculado: valorCalculado,
+      cliente_id: trajeto.clienteId,
+    })
+    .eq("id", id)
+    .eq("status", "PENDENTE")
+    .select("id");
+
+  if (updateError) {
+    console.error("editarDespesaAdmin: falha no UPDATE.", updateError.message);
+    return { ok: false, error: "Não foi possível salvar as alterações." };
+  }
+
+  if (!atualizadas || atualizadas.length === 0) {
+    return {
+      ok: false,
+      error: "Despesas pagas não podem ser editadas.",
     };
   }
 

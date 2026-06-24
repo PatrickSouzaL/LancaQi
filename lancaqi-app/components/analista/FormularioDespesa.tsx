@@ -6,7 +6,11 @@ import { toast } from "sonner";
 import { format, parseISO, subYears, isAfter, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import { criarDespesa, editarDespesa } from "@/app/actions/despesas-actions";
+import {
+  criarDespesa,
+  editarDespesa,
+  editarDespesaAdmin,
+} from "@/app/actions/despesas-actions";
 import {
   ClienteCombobox,
   type OpcaoCliente,
@@ -62,11 +66,14 @@ export function FormularioDespesa({
   clientes,
   despesa,
   onSucesso,
+  comoAdmin = false,
 }: {
   taxas: ConfiguracoesTaxas;
   clientes: OpcaoCliente[];
   despesa?: Despesa;
   onSucesso?: () => void;
+  /** Edição administrativa (auditoria): usa a action que não filtra por dono. */
+  comoAdmin?: boolean;
 }) {
   const editando = despesa !== undefined;
 
@@ -173,7 +180,7 @@ export function FormularioDespesa({
 
     startTransition(async () => {
       const resultado = editando
-        ? await editarDespesa(fd)
+        ? await (comoAdmin ? editarDespesaAdmin : editarDespesa)(fd)
         : await criarDespesa(fd);
       if (resultado.ok) {
         if (editando) {

@@ -8,7 +8,7 @@ import {
 } from "@/lib/data/mappers";
 import { createClient } from "@/lib/supabase/server";
 import type { Periodo } from "@/lib/periodo";
-import type { Despesa } from "@/lib/types";
+import type { Despesa, TipoDespesa } from "@/lib/types";
 
 /**
  * Leitura de despesas via Supabase. O acesso é controlado pela RLS:
@@ -38,27 +38,41 @@ export async function getDespesas(periodo?: Periodo): Promise<Despesa[]> {
   return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }
 
+export interface AuditoriaFiltros {
+  /** Busca por nome do analista (`ilike`, case-insensitive). */
+  termo?: string;
+  /** Filtra por cliente (FK `cliente_id`). */
+  clienteId?: string;
+  /** Filtra por tipo de deslocamento. */
+  tipo?: TipoDespesa;
+}
+
 /**
- * Auditoria com busca server-side por nome do analista (`ilike`, case-
- * insensitive). Sem termo, lista tudo (restrito pela RLS `is_admin()`).
+ * Auditoria (relatório) com filtros server-side combináveis: analista (`ilike`
+ * no nome), cliente (`cliente_id`) e tipo. Tudo restrito pela RLS `is_admin()`.
+ * O filtro por analista exige o join `!inner` para restringir as linhas-pai.
  */
 export async function getDespesasParaAuditoria(
-  termo?: string,
+  filtros: AuditoriaFiltros = {},
 ): Promise<Despesa[]> {
   const supabase = await createClient();
-  const busca = termo?.trim();
+  const busca = filtros.termo?.trim();
 
-  const query = busca
-    ? supabase
-        .from("despesas")
-        .select(DESPESA_SELECT_BUSCA)
-        // `%` e `,` quebrariam o filtro do PostgREST — neutraliza-os.
-        .ilike("usuarios.nome", `%${busca.replace(/[%,]/g, " ")}%`)
-        .order("criado_em", { ascending: false })
-    : supabase
-        .from("despesas")
-        .select(DESPESA_SELECT)
-        .order("criado_em", { ascending: false });
+  let query = supabase
+    .from("despesas")
+    .select(busca ? DESPESA_SELECT_BUSCA : DESPESA_SELECT)
+    .order("criado_em", { ascending: false });
+
+  if (busca) {
+    // `%` e `,` quebrariam o filtro do PostgREST — neutraliza-os.
+    query = query.ilike("usuarios.nome", `%${busca.replace(/[%,]/g, " ")}%`);
+  }
+  if (filtros.clienteId) {
+    query = query.eq("cliente_id", filtros.clienteId);
+  }
+  if (filtros.tipo) {
+    query = query.eq("tipo", filtros.tipo);
+  }
 
   const { data, error } = await query;
 

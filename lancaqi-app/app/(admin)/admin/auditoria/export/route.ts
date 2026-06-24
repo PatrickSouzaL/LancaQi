@@ -1,16 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
-import { getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasParaAuditoria } from "@/lib/data/despesas";
 import { formatarData, labelStatus, labelTipo } from "@/lib/format";
 import { gerarCsv } from "@/lib/csv";
+import type { TipoDespesa } from "@/lib/types";
+
+const TIPOS_VALIDOS: TipoDespesa[] = ["ESCRITORIO", "MOTO", "CARRO"];
 
 /**
- * Exporta as despesas PENDENTES em CSV (Fechamento Quinzenal).
- *
- * Gerado 100% server-side: `getUser()` → `is_admin` → leitura via RLS → CSV.
- * É um endpoint GET autenticado (cookies de sessão), então o link de download
- * funciona direto no navegador. Separador `;` + BOM para abrir no Excel pt-BR.
+ * Exporta o relatório de Auditoria em CSV, respeitando os MESMOS filtros da
+ * tela (analista `q`, `cliente`, `tipo`) — eles chegam como query params.
+ * Server-side: getUser → is_admin → leitura via RLS (`is_admin()`) → CSV.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
 
   const {
@@ -32,7 +33,17 @@ export async function GET() {
     return new Response("Acesso restrito a administradores.", { status: 403 });
   }
 
-  const pendentes = await getDespesasPendentes();
+  const { searchParams } = new URL(request.url);
+  const tipoParam = searchParams.get("tipo");
+  const tipo = TIPOS_VALIDOS.includes(tipoParam as TipoDespesa)
+    ? (tipoParam as TipoDespesa)
+    : undefined;
+
+  const despesas = await getDespesasParaAuditoria({
+    termo: searchParams.get("q") ?? undefined,
+    clienteId: searchParams.get("cliente") ?? undefined,
+    tipo,
+  });
 
   const cabecalho = [
     "Analista",
@@ -45,13 +56,12 @@ export async function GET() {
     "Status",
   ];
 
-  const linhas = pendentes.map((d) => [
+  const linhas = despesas.map((d) => [
     d.usuario_nome,
     formatarData(d.data),
     labelTipo(d.tipo),
     d.origem,
     d.destino,
-    // Números no padrão pt-BR (vírgula decimal) para o Excel reconhecer.
     String(d.quantidade_km).replace(".", ","),
     d.valor_calculado.toFixed(2).replace(".", ","),
     labelStatus(d.status),
@@ -65,7 +75,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="despesas-pendentes-${hoje}.csv"`,
+      "Content-Disposition": `attachment; filename="auditoria-${hoje}.csv"`,
       "Cache-Control": "no-store",
     },
   });
