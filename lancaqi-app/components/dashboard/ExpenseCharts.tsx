@@ -30,13 +30,13 @@ import {
 import { formatarBRL } from "@/lib/format";
 import type { DistribuicaoTipo, GastoDiario } from "@/lib/types";
 
-// Paleta harmonizada (estilo Vercel/Linear): neutro para o valor fixo de
-// Escritório e tons frios coesos para os deslocamentos.
-// Escritório = slate-300, Carro = indigo-500, Moto = sky-400.
+// Paleta harmonizada com a cor da marca (azul #5BBAE8): neutro para o valor
+// fixo de Escritório e tons de azul coesos para os deslocamentos.
+// Escritório = slate-300, Carro = azul profundo, Moto = azul da marca.
 const chartConfig = {
   ESCRITORIO: { label: "Escritório", color: "#cbd5e1" },
-  CARRO: { label: "Carro", color: "#6366f1" },
-  MOTO: { label: "Moto", color: "#38bdf8" },
+  CARRO: { label: "Carro", color: "#1f7fb5" },
+  MOTO: { label: "Moto", color: "#5BBAE8" },
 } satisfies ChartConfig;
 
 function rotuloDia(iso: string): string {

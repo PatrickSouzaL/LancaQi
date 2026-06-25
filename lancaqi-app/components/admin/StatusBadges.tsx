@@ -1,7 +1,7 @@
 /**
  * Badges de `tipo` e `status`.
  *
- * Cores harmonizadas com os gráficos (Escritório=slate, Carro=indigo, Moto=sky)
+ * Cores harmonizadas com os gráficos (Escritório=slate, Carro=blue, Moto=sky)
  * e status no padrão do guideline (Pendente=amber, Pago=emerald). Tons 100/700
  * garantem contraste AA. Server Components puros.
  */
@@ -11,7 +11,7 @@ import type { StatusDespesa, TipoDespesa } from "@/lib/types";
 
 const ESTILO_TIPO: Record<TipoDespesa, string> = {
   ESCRITORIO: "bg-slate-100 text-slate-700",
-  CARRO: "bg-indigo-100 text-indigo-700",
+  CARRO: "bg-blue-100 text-blue-700",
   MOTO: "bg-sky-100 text-sky-700",
 };
 
