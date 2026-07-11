@@ -30,13 +30,25 @@ import {
 import { formatarBRL } from "@/lib/format";
 import type { DistribuicaoTipo, GastoDiario } from "@/lib/types";
 
-// Paleta harmonizada com a cor da marca (azul #5BBAE8): neutro para o valor
-// fixo de Escritório e tons de azul coesos para os deslocamentos.
-// Escritório = slate-300, Carro = azul profundo, Moto = azul da marca.
+// Paleta harmonizada com a cor da marca (azul #5BBAE8). As duas primeiras
+// chaves (categorias) alimentam a barra empilhada; as demais (tipos) alimentam
+// o donut de distribuição.
 const chartConfig = {
+  // Categorias (barra empilhada)
+  DESLOCAMENTO: { label: "Deslocamento", color: "#1f7fb5" },
+  DESPESA: { label: "Despesa", color: "#5BBAE8" },
+  // Tipos (donut)
   ESCRITORIO: { label: "Escritório", color: "#cbd5e1" },
   CARRO: { label: "Carro", color: "#1f7fb5" },
   MOTO: { label: "Moto", color: "#5BBAE8" },
+  PEDAGIO: { label: "Pedágio", color: "#f97316" },
+  ESTACIONAMENTO: { label: "Estacionamento", color: "#eab308" },
+  ALIMENTACAO_EXTERNA: { label: "Alimentação", color: "#f43f5e" },
+  ALMOCO_CLIENTE: { label: "Almoço c/ cliente", color: "#ec4899" },
+  LICENCA_SOFTWARE: { label: "Licença de software", color: "#8b5cf6" },
+  EQUIPAMENTO: { label: "Equipamento", color: "#6366f1" },
+  HOSPEDAGEM: { label: "Hospedagem", color: "#14b8a6" },
+  PASSAGEM: { label: "Passagem", color: "#06b6d4" },
 } satisfies ChartConfig;
 
 function rotuloDia(iso: string): string {
@@ -70,8 +82,10 @@ export function ExpenseCharts({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card className="shadow-sm lg:col-span-2">
         <CardHeader>
-          <CardTitle>Gastos por Deslocamento</CardTitle>
-          <CardDescription>Evolução diária da quinzena por tipo</CardDescription>
+          <CardTitle>Gastos por Dia</CardTitle>
+          <CardDescription>
+            Evolução diária da quinzena por categoria
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-64 w-full">
@@ -92,12 +106,15 @@ export function ExpenseCharts({
                 }
               />
               <ChartLegend content={<ChartLegendContent className="text-xs" />} />
-              <Bar dataKey="ESCRITORIO" stackId="a" fill="var(--color-ESCRITORIO)" />
-              <Bar dataKey="CARRO" stackId="a" fill="var(--color-CARRO)" />
               <Bar
-                dataKey="MOTO"
+                dataKey="DESLOCAMENTO"
                 stackId="a"
-                fill="var(--color-MOTO)"
+                fill="var(--color-DESLOCAMENTO)"
+              />
+              <Bar
+                dataKey="DESPESA"
+                stackId="a"
+                fill="var(--color-DESPESA)"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>

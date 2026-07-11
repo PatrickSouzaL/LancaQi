@@ -34,10 +34,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TODOS_TIPOS } from "@/lib/despesas-tipos";
 import { formatarBRL, formatarData, formatarKm, labelTipo } from "@/lib/format";
 import type { ConfiguracoesTaxas, Despesa, TipoDespesa } from "@/lib/types";
 
-const TIPOS: TipoDespesa[] = ["ESCRITORIO", "MOTO", "CARRO"];
+const TIPOS = TODOS_TIPOS;
 const TODOS = "TODOS";
 
 /**

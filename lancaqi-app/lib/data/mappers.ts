@@ -9,6 +9,7 @@ import type { Despesa, StatusDespesa, TipoDespesa } from "@/lib/types";
  * - `usuario_nome` vem do join em `usuarios.nome` (desnormalizado para a UI).
  * - `hora` NÃO existe no schema; é derivada de `criado_em` (timestamptz).
  * - `origem`/`destino` nulos viram "—"; decimais (string do PostgREST) → number.
+ * - `valor_declarado`/`descricao` são `null` nos deslocamentos.
  * - `observacao` não existe no schema atual.
  */
 
@@ -22,6 +23,8 @@ export interface DespesaRow {
   tipo: TipoDespesa;
   quantidade_km: number | string | null;
   valor_calculado: number | string;
+  valor_declarado: number | string | null;
+  descricao: string | null;
   status: StatusDespesa;
   cliente_id: string | null;
   criado_em: string;
@@ -31,7 +34,7 @@ export interface DespesaRow {
 
 /** Colunas selecionadas em toda leitura de despesas (inclui o join de nome). */
 export const DESPESA_SELECT =
-  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, cliente_id, criado_em, usuarios ( nome )";
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, valor_declarado, descricao, status, cliente_id, criado_em, usuarios ( nome )";
 
 /**
  * Variante com `!inner` no join: ao filtrar por `usuarios.nome` (busca server-
@@ -39,7 +42,7 @@ export const DESPESA_SELECT =
  * `despesas` — com o join padrão (left) o filtro não eliminaria as despesas.
  */
 export const DESPESA_SELECT_BUSCA =
-  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, status, cliente_id, criado_em, usuarios!inner ( nome )";
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, valor_declarado, descricao, status, cliente_id, criado_em, usuarios!inner ( nome )";
 
 function nomeDoUsuario(usuarios: DespesaRow["usuarios"]): string {
   if (!usuarios) return "—";
@@ -67,6 +70,9 @@ export function mapDespesaFromDb(row: DespesaRow): Despesa {
     tipo: row.tipo,
     quantidade_km: row.quantidade_km == null ? 0 : Number(row.quantidade_km),
     valor_calculado: Number(row.valor_calculado),
+    valor_declarado:
+      row.valor_declarado == null ? null : Number(row.valor_declarado),
+    descricao: row.descricao,
     status: row.status,
     cliente_id: row.cliente_id,
   };

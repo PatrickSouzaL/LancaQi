@@ -57,7 +57,7 @@ export default async function AnalistaDashboardPage() {
     <>
       <PageHeading
         titulo={`Olá, ${primeiroNome}`}
-        descricao="Resumo dos seus deslocamentos na quinzena atual."
+        descricao="Resumo dos seus lançamentos na quinzena atual."
         acao={
           <Button asChild className="h-11">
             <Link href="/analista/lancamento">
@@ -126,7 +126,7 @@ export default async function AnalistaDashboardPage() {
 
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-foreground">Últimos Lançamentos</h3>
-        
+
         {ultimasDespesas.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-8 text-center bg-card">
             <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada.</p>
@@ -155,7 +155,7 @@ export default async function AnalistaDashboardPage() {
                         {labelTipo(d.tipo)}
                       </TableCell>
                       <TableCell>
-                        {d.tipo === "ESCRITORIO" ? (
+                        {d.origem === "—" && d.destino === "—" ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           <span>
@@ -188,11 +188,9 @@ export default async function AnalistaDashboardPage() {
                         {formatarData(d.data)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {d.tipo === "ESCRITORIO" ? (
-                          "Escritório (presencial)"
-                        ) : (
-                          `${d.origem} → ${d.destino}`
-                        )}
+                        {d.origem === "—" && d.destino === "—"
+                          ? labelTipo(d.tipo)
+                          : `${d.origem} → ${d.destino}`}
                       </p>
                     </div>
                     <StatusBadge status={d.status} />

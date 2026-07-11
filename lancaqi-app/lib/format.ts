@@ -32,6 +32,14 @@ const LABEL_TIPO: Record<TipoDespesa, string> = {
   ESCRITORIO: "Escritório",
   MOTO: "Moto",
   CARRO: "Carro",
+  PEDAGIO: "Pedágio",
+  ESTACIONAMENTO: "Estacionamento",
+  ALIMENTACAO_EXTERNA: "Alimentação",
+  ALMOCO_CLIENTE: "Almoço c/ cliente",
+  LICENCA_SOFTWARE: "Licença de software",
+  EQUIPAMENTO: "Equipamento",
+  HOSPEDAGEM: "Hospedagem",
+  PASSAGEM: "Passagem",
 };
 
 const LABEL_STATUS: Record<StatusDespesa, string> = {

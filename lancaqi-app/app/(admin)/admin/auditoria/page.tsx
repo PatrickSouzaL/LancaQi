@@ -3,9 +3,8 @@ import { AuditoriaClient } from "@/components/admin/AuditoriaClient";
 import { getClientes } from "@/lib/data/clientes";
 import { getConfiguracoesTaxas } from "@/lib/data/configuracoes";
 import { getDespesasParaAuditoria } from "@/lib/data/despesas";
+import { ehTipoValido } from "@/lib/despesas-tipos";
 import type { TipoDespesa } from "@/lib/types";
-
-const TIPOS_VALIDOS: TipoDespesa[] = ["ESCRITORIO", "MOTO", "CARRO"];
 
 export default async function AuditoriaPage({
   searchParams,
@@ -15,9 +14,8 @@ export default async function AuditoriaPage({
   const { q, cliente, tipo } = await searchParams;
   const termo = (q ?? "").trim();
   const clienteId = cliente?.trim() || undefined;
-  const tipoFiltro = TIPOS_VALIDOS.includes(tipo as TipoDespesa)
-    ? (tipo as TipoDespesa)
-    : undefined;
+  const tipoFiltro =
+    tipo && ehTipoValido(tipo) ? (tipo as TipoDespesa) : undefined;
 
   // Filtros server-side (analista/cliente/tipo) + dados para filtro e edição.
   // Tudo restrito pela RLS `is_admin()`.

@@ -2,15 +2,35 @@
  * Tipos do domínio LançaQi.
  *
  * Derivados de `_docs/schema.sql` (fonte de verdade do banco):
- *  - `tipo`   → CHECK ('ESCRITORIO' | 'MOTO' | 'CARRO')  — MAIÚSCULAS
+ *  - `tipo`   → CHECK com 11 valores (deslocamentos + despesas gerais) — MAIÚSCULAS
  *  - `status` → CHECK ('PENDENTE' | 'PAGO')              — sem "REJEITADO"
  *  - valores monetários em DECIMAL(10,2) (reais, BRL)
  *
  * Os labels em português ("Escritório"/"Pago") são responsabilidade da camada
- * de apresentação (ver `lib/format.ts`), não do modelo de dados.
+ * de apresentação (ver `lib/format.ts`), não do modelo de dados. As regras de
+ * quais campos cada tipo habilita vivem em `lib/despesas-tipos.ts`.
  */
 
-export type TipoDespesa = "ESCRITORIO" | "MOTO" | "CARRO";
+export type TipoDespesa =
+  // Deslocamentos (valor por KM ou fixo de escritório)
+  | "ESCRITORIO"
+  | "MOTO"
+  | "CARRO"
+  // Despesas gerais (valor declarado pelo usuário)
+  | "PEDAGIO"
+  | "ESTACIONAMENTO"
+  | "ALIMENTACAO_EXTERNA"
+  | "ALMOCO_CLIENTE"
+  | "LICENCA_SOFTWARE"
+  | "EQUIPAMENTO"
+  | "HOSPEDAGEM"
+  | "PASSAGEM";
+
+/**
+ * Agrupamento de tipos apenas para o encadeamento visual dos selects e para as
+ * agregações do dashboard. Não existe no banco.
+ */
+export type CategoriaDespesa = "DESLOCAMENTO" | "DESPESA";
 
 /** O schema só admite estes dois estados (CHECK em `despesas.status`). */
 export type StatusDespesa = "PENDENTE" | "PAGO";
@@ -35,11 +55,19 @@ export interface Despesa {
   origem: string;
   destino: string;
   tipo: TipoDespesa;
-  quantidade_km: number; // 0 para ESCRITORIO (valor fixo)
+  quantidade_km: number; // 0 quando o tipo não usa KM
   valor_calculado: number; // recalculado no servidor; aqui é mock
+  /**
+   * Valor informado pelo usuário nos tipos de DESPESA (pedágio, hospedagem…).
+   * `null` nos deslocamentos, onde o valor é calculado (KM/fixo). Para os tipos
+   * de despesa, o servidor copia este valor para `valor_calculado` — assim os
+   * dashboards continuam somando um único campo.
+   */
+  valor_declarado: number | null;
+  /** Texto livre para detalhar a despesa (hotel, item, motivo do almoço…). */
+  descricao: string | null;
   status: StatusDespesa;
-  cliente_id: string | null; // FK → clientes.id (null em ESCRITORIO)
-  observacao?: string;
+  cliente_id: string | null; // FK → clientes.id (null quando não há cliente)
 }
 
 /**
@@ -80,12 +108,15 @@ export interface DashboardKpis {
   variacaoAnalistas: number; // alta = bom
 }
 
-/** Total por dia, decomposto por tipo (barras empilhadas do Dashboard). */
+/**
+ * Total por dia, decomposto por CATEGORIA (barras empilhadas do Dashboard).
+ * Com 11 tipos, empilhar por tipo poluiria o gráfico; a decomposição
+ * Deslocamento × Despesa mantém a leitura limpa sem perder nenhum valor.
+ */
 export interface GastoDiario {
   data: string; // ISO 8601
-  ESCRITORIO: number;
-  CARRO: number;
-  MOTO: number;
+  DESLOCAMENTO: number;
+  DESPESA: number;
 }
 
 /** Fatia da distribuição por tipo (donut do Dashboard). */

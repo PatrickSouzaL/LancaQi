@@ -2,9 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getDespesasParaAuditoria } from "@/lib/data/despesas";
 import { formatarData, labelStatus, labelTipo } from "@/lib/format";
 import { gerarCsv } from "@/lib/csv";
+import { ehTipoValido } from "@/lib/despesas-tipos";
 import type { TipoDespesa } from "@/lib/types";
-
-const TIPOS_VALIDOS: TipoDespesa[] = ["ESCRITORIO", "MOTO", "CARRO"];
 
 /**
  * Exporta o relatório de Auditoria em CSV, respeitando os MESMOS filtros da
@@ -35,9 +34,10 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const tipoParam = searchParams.get("tipo");
-  const tipo = TIPOS_VALIDOS.includes(tipoParam as TipoDespesa)
-    ? (tipoParam as TipoDespesa)
-    : undefined;
+  const tipo =
+    tipoParam && ehTipoValido(tipoParam)
+      ? (tipoParam as TipoDespesa)
+      : undefined;
 
   const despesas = await getDespesasParaAuditoria({
     termo: searchParams.get("q") ?? undefined,

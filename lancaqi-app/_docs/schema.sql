@@ -23,15 +23,23 @@ INSERT INTO public.configuracoes_taxas (valor_fixo_escritorio, taxa_km_moto, tax
 VALUES (30.00, 0.50, 1.00);
 
 -- Tabela de Despesas (Transacional)
+-- `tipo` cobre deslocamentos (valor por KM/fixo) e despesas gerais (valor
+-- declarado). Ver Migracao_003_Gestao_de_Despesas para a evolução do CHECK.
 CREATE TABLE public.despesas (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     usuario_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
     data DATE NOT NULL,
     origem TEXT,
     destino TEXT,
-    tipo TEXT CHECK (tipo IN ('ESCRITORIO', 'MOTO', 'CARRO')) NOT NULL,
+    tipo TEXT CHECK (tipo IN (
+        'ESCRITORIO', 'MOTO', 'CARRO',
+        'PEDAGIO', 'ESTACIONAMENTO', 'ALIMENTACAO_EXTERNA', 'ALMOCO_CLIENTE',
+        'LICENCA_SOFTWARE', 'EQUIPAMENTO', 'HOSPEDAGEM', 'PASSAGEM'
+    )) NOT NULL,
     quantidade_km DECIMAL(10, 2),
     valor_calculado DECIMAL(10, 2) NOT NULL,
+    valor_declarado DECIMAL(10, 2),
+    descricao TEXT,
     status TEXT CHECK (status IN ('PENDENTE', 'PAGO')) DEFAULT 'PENDENTE' NOT NULL,
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

@@ -10,9 +10,19 @@ import { labelStatus, labelTipo } from "@/lib/format";
 import type { StatusDespesa, TipoDespesa } from "@/lib/types";
 
 const ESTILO_TIPO: Record<TipoDespesa, string> = {
+  // Deslocamentos
   ESCRITORIO: "bg-slate-100 text-slate-700",
   CARRO: "bg-blue-100 text-blue-700",
   MOTO: "bg-sky-100 text-sky-700",
+  // Despesas gerais
+  PEDAGIO: "bg-orange-100 text-orange-700",
+  ESTACIONAMENTO: "bg-yellow-100 text-yellow-800",
+  ALIMENTACAO_EXTERNA: "bg-rose-100 text-rose-700",
+  ALMOCO_CLIENTE: "bg-pink-100 text-pink-700",
+  LICENCA_SOFTWARE: "bg-violet-100 text-violet-700",
+  EQUIPAMENTO: "bg-indigo-100 text-indigo-700",
+  HOSPEDAGEM: "bg-teal-100 text-teal-700",
+  PASSAGEM: "bg-cyan-100 text-cyan-700",
 };
 
 const ESTILO_STATUS: Record<StatusDespesa, string> = {

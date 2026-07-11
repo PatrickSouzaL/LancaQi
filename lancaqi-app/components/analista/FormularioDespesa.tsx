@@ -28,38 +28,49 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { calcularPrevia, exigeKm } from "@/lib/calculo";
+import { calcularPrevia } from "@/lib/calculo";
+import {
+  categoriaDe,
+  exigeCliente,
+  OPCOES_CATEGORIA,
+  OPCOES_POR_CATEGORIA,
+  permiteCliente,
+  usaClienteAvulso,
+  usaKm,
+  usaTrajetoCliente,
+  usaTrajetoTexto,
+  usaValorDeclarado,
+} from "@/lib/despesas-tipos";
 import { formatarBRL } from "@/lib/format";
-import type { ConfiguracoesTaxas, Despesa, TipoDespesa } from "@/lib/types";
+import type {
+  CategoriaDespesa,
+  ConfiguracoesTaxas,
+  Despesa,
+  TipoDespesa,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-interface OpcaoTipo {
-  valor: TipoDespesa;
-  label: string;
-}
-
-const OPCOES_TIPO: OpcaoTipo[] = [
-  { valor: "ESCRITORIO", label: "Escritório (presencial)" },
-  { valor: "MOTO", label: "Cliente — Moto" },
-  { valor: "CARRO", label: "Cliente — Carro" },
-];
-
 type Erros = Partial<
-  Record<"data" | "tipo" | "origem" | "cliente" | "km", string>
+  Record<"data" | "tipo" | "cliente" | "km" | "valor", string>
 >;
 
+// Origem/destino em texto vêm mapeados como "—" quando nulos (ver mappers).
+const semTraco = (v: string | undefined) => (v && v !== "—" ? v : "");
+
 /**
- * Formulário de novo lançamento (Visao_Analista §3.2 + UI_UX_Guidelines §2.2).
+ * Formulário de lançamento — agora cobre DESLOCAMENTOS e DESPESAS gerais.
  *
- * - Campo KM aparece/some com transição suave conforme o tipo (Escritório
- *   oculta; Cliente exige).
- * - Prévia do valor recalculada em tempo real (apenas simulação visual; o
- *   back-end refaz o cálculo — o valor do cliente nunca é confiado).
- * - Submit com spinner e botão desabilitado (previne duplo clique).
+ * Fluxo encadeado de selects:
+ *   1) Categoria (Deslocamento | Despesa) — controle visual.
+ *   2) Tipo — opções conforme a categoria.
+ *   3) Campos finais (KM, Origem/Destino, Cliente, Descrição, Valor) aparecem
+ *      conforme o tipo (regras centralizadas em `lib/despesas-tipos.ts`).
  *
- * Reutilizável para EDIÇÃO: passando `despesa`, o formulário inicia preenchido
- * e o submit chama `editarDespesa` (em vez de `criarDespesa`); `onSucesso`
- * permite ao container (ex.: um Sheet) fechar após salvar.
+ * O valor financeiro NUNCA é confiado do cliente: o back-end recalcula por taxa
+ * (deslocamentos) ou copia o valor declarado (despesas). A prévia aqui é só UX.
+ *
+ * Reutilizável para EDIÇÃO (`despesa` preenchida) e para edição administrativa
+ * (`comoAdmin`).
  */
 export function FormularioDespesa({
   taxas,
@@ -77,36 +88,61 @@ export function FormularioDespesa({
 }) {
   const editando = despesa !== undefined;
 
-  // Na edição, a origem foi salva como TEXTO (nome do cliente); recupera o id
-  // correspondente para pré-selecionar o combobox. O cliente vem direto do FK.
-  const origemInicial = despesa
-    ? (clientes.find((c) => c.nome === despesa.origem)?.id ?? null)
-    : null;
+  // Na edição de MOTO/CARRO, a origem foi salva como TEXTO (nome do cliente);
+  // recupera o id correspondente para pré-selecionar o combobox.
+  const origemInicial =
+    despesa && usaTrajetoCliente(despesa.tipo)
+      ? (clientes.find((c) => c.nome === despesa.origem)?.id ?? null)
+      : null;
 
   const [data, setData] = useState(despesa?.data ?? "");
   const [popoverAberto, setPopoverAberto] = useState(false);
+  const [categoria, setCategoria] = useState<CategoriaDespesa | "">(
+    despesa ? categoriaDe(despesa.tipo) : "",
+  );
   const [tipo, setTipo] = useState<TipoDespesa | "">(despesa?.tipo ?? "");
   const [origemId, setOrigemId] = useState<string | null>(origemInicial);
   const [clienteId, setClienteId] = useState<string | null>(
     despesa?.cliente_id ?? null,
   );
+  // Origem/destino em texto livre (pedágio/estacionamento/passagem).
+  const [origemTexto, setOrigemTexto] = useState(
+    despesa && usaTrajetoTexto(despesa.tipo) ? semTraco(despesa.origem) : "",
+  );
+  const [destinoTexto, setDestinoTexto] = useState(
+    despesa && usaTrajetoTexto(despesa.tipo) ? semTraco(despesa.destino) : "",
+  );
   const [km, setKm] = useState(
     despesa && despesa.quantidade_km > 0 ? String(despesa.quantidade_km) : "",
   );
-  const [observacao, setObservacao] = useState(despesa?.observacao ?? "");
+  const [valorDeclarado, setValorDeclarado] = useState(
+    despesa?.valor_declarado != null ? String(despesa.valor_declarado) : "",
+  );
+  const [descricao, setDescricao] = useState(despesa?.descricao ?? "");
 
   const [erros, setErros] = useState<Erros>({});
   const [enviando, startTransition] = useTransition();
 
-  // Deslocamento até o cliente (Moto/Carro): exige origem, destino e KM.
-  // Escritório tem valor fixo automático — esses campos não se aplicam.
-  const mostrarCliente = tipo !== "" && exigeKm(tipo);
+  // Visibilidade dos campos finais conforme o tipo escolhido.
+  const temTipo = tipo !== "";
+  const mostrarKm = temTipo && usaKm(tipo);
+  const mostrarTrajetoCliente = temTipo && usaTrajetoCliente(tipo);
+  const mostrarTrajetoTexto = temTipo && usaTrajetoTexto(tipo);
+  const mostrarClienteAvulso = temTipo && usaClienteAvulso(tipo);
+  const clienteObrigatorio = temTipo && exigeCliente(tipo);
+  const mostrarValor = temTipo && usaValorDeclarado(tipo);
+  // Descrição é persistida (coluna `descricao`) e vale para TODOS os tipos —
+  // inclusive deslocamentos. O antigo campo "Observação" não era gravado.
+  const mostrarDescricao = temTipo;
+
+  const opcoesTipo = categoria ? OPCOES_POR_CATEGORIA[categoria] : [];
 
   const previa = useMemo(() => {
     if (tipo === "") return null;
     const kmNum = Number(km) || 0;
-    return calcularPrevia(tipo, kmNum, taxas);
-  }, [tipo, km, taxas]);
+    const valorNum = Number(valorDeclarado) || 0;
+    return calcularPrevia(tipo, kmNum, taxas, valorNum);
+  }, [tipo, km, valorDeclarado, taxas]);
 
   function validar(): Erros {
     const e: Erros = {};
@@ -127,34 +163,63 @@ export function FormularioDespesa({
         e.data = "Data inválida.";
       }
     }
-    if (tipo === "") e.tipo = "Selecione o tipo.";
-    // Origem/cliente/KM só são exigidos em deslocamentos até o cliente.
-    if (mostrarCliente) {
-      if (!origemId) e.origem = "Selecione a origem.";
-      if (!clienteId) e.cliente = "Selecione o cliente.";
+    if (tipo === "") {
+      e.tipo = "Selecione o tipo.";
+      return e;
+    }
+    if (mostrarKm) {
       const kmNum = Number(km);
       if (km.trim() === "" || Number.isNaN(kmNum) || kmNum <= 0)
         e.km = "Informe uma quilometragem maior que zero.";
+    }
+    if (clienteObrigatorio && !clienteId) {
+      e.cliente = "Selecione o cliente.";
+    }
+    if (mostrarValor) {
+      const valorNum = Number(valorDeclarado);
+      if (
+        valorDeclarado.trim() === "" ||
+        Number.isNaN(valorNum) ||
+        valorNum <= 0
+      )
+        e.valor = "Informe um valor maior que zero.";
     }
     return e;
   }
 
   function limpar() {
     setData("");
+    setCategoria("");
     setTipo("");
     setOrigemId(null);
     setClienteId(null);
+    setOrigemTexto("");
+    setDestinoTexto("");
     setKm("");
-    setObservacao("");
+    setValorDeclarado("");
+    setDescricao("");
+  }
+
+  // Trocar de categoria zera o tipo (o 2º select recarrega) e os campos finais.
+  function onCategoriaChange(v: string) {
+    setCategoria(v as CategoriaDespesa);
+    setTipo("");
+    setOrigemId(null);
+    setClienteId(null);
+    setOrigemTexto("");
+    setDestinoTexto("");
+    setKm("");
+    setValorDeclarado("");
+    setErros({});
   }
 
   // Mapeia os campos retornados pela Server Action (Zod) para os do formulário.
   const CAMPO_SERVIDOR: Record<string, keyof Erros> = {
     data: "data",
     tipo: "tipo",
-    origem_cliente_id: "origem",
     cliente_id: "cliente",
     quantidade_km: "km",
+    valor_declarado: "valor",
   };
 
   function onSubmit(ev: React.FormEvent<HTMLFormElement>) {
@@ -164,19 +229,29 @@ export function FormularioDespesa({
     const novosErros = validar();
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
+    if (tipo === "") return; // narrowing (já coberto por validar)
 
     // Monta o FormData enviado à action. O `valor_calculado` NÃO é enviado —
-    // o servidor recalcula a partir das taxas oficiais.
+    // o servidor recalcula (taxa) ou copia o valor declarado.
     const fd = new FormData();
     if (editando) fd.set("id", despesa.id);
     fd.set("data", data);
     fd.set("tipo", tipo);
-    if (mostrarCliente) {
+
+    if (mostrarKm) fd.set("quantidade_km", km);
+    if (mostrarTrajetoCliente) {
       if (origemId) fd.set("origem_cliente_id", origemId);
       if (clienteId) fd.set("cliente_id", clienteId);
-      fd.set("quantidade_km", km);
     }
-    if (observacao.trim()) fd.set("observacao", observacao.trim());
+    if (mostrarTrajetoTexto) {
+      if (origemTexto.trim()) fd.set("origem", origemTexto.trim());
+      if (destinoTexto.trim()) fd.set("destino", destinoTexto.trim());
+    }
+    if (mostrarClienteAvulso && clienteId) fd.set("cliente_id", clienteId);
+    if (mostrarValor) fd.set("valor_declarado", valorDeclarado);
+    // Sempre enviamos `descricao` (mesmo vazia) para permitir limpar o texto na
+    // edição — o servidor grava null quando vier em branco.
+    if (mostrarDescricao) fd.set("descricao", descricao.trim());
 
     startTransition(async () => {
       const resultado = editando
@@ -204,10 +279,12 @@ export function FormularioDespesa({
     });
   }
 
+  const clientePermitido = temTipo && permiteCliente(tipo);
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="grid gap-2">
-        <Label htmlFor="data">Data do deslocamento</Label>
+        <Label htmlFor="data">Data</Label>
         <Popover open={popoverAberto} onOpenChange={setPopoverAberto}>
           <PopoverTrigger asChild>
             <Button
@@ -252,116 +329,190 @@ export function FormularioDespesa({
         {erros.data && <p className="text-sm text-destructive">{erros.data}</p>}
       </div>
 
+      {/* 1º select: Categoria (apenas controle visual do fluxo). */}
       <div className="grid gap-2">
-        <Label htmlFor="tipo">Tipo de deslocamento</Label>
-        <Select
-          value={tipo}
-          onValueChange={(v) => setTipo(v as TipoDespesa)}
-        >
-          <SelectTrigger id="tipo" className="h-11" aria-invalid={Boolean(erros.tipo)}>
-            <SelectValue placeholder="Selecione o tipo" />
+        <Label htmlFor="categoria">Categoria</Label>
+        <Select value={categoria} onValueChange={onCategoriaChange}>
+          <SelectTrigger id="categoria" className="h-11">
+            <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
-            {OPCOES_TIPO.map((o) => (
+            {OPCOES_CATEGORIA.map((o) => (
               <SelectItem key={o.valor} value={o.valor}>
                 {o.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {erros.tipo && <p className="text-sm text-destructive">{erros.tipo}</p>}
       </div>
 
-      {/*
-        Trajeto (origem/cliente) + KM. Só se aplicam a deslocamentos até o
-        cliente — para Escritório o valor é automático, então o bloco inteiro
-        some com transição suave de altura/opacidade (sem salto). Origem e
-        cliente são SELECIONADOS (busca no combobox); não aceitam texto livre.
-      */}
-      <div
-        className={cn(
-          "grid transition-all duration-300 ease-in-out",
-          mostrarCliente
-            ? "grid-rows-[1fr] opacity-100"
-            : "grid-rows-[0fr] opacity-0",
-        )}
-        aria-hidden={!mostrarCliente}
-      >
-        <div className="overflow-hidden">
-          <div className="space-y-6 pt-px">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="origem">Origem</Label>
-                <ClienteCombobox
-                  id="origem"
-                  clientes={clientes}
-                  value={origemId}
-                  onChange={setOrigemId}
-                  placeholder="Selecione a origem"
-                  invalid={Boolean(erros.origem)}
-                  disabled={!mostrarCliente}
-                />
-                {erros.origem && (
-                  <p className="text-sm text-destructive">{erros.origem}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="cliente">Cliente (destino)</Label>
-                <ClienteCombobox
-                  id="cliente"
-                  clientes={clientes}
-                  value={clienteId}
-                  onChange={setClienteId}
-                  placeholder="Selecione o cliente"
-                  invalid={Boolean(erros.cliente)}
-                  disabled={!mostrarCliente}
-                />
-                {erros.cliente && (
-                  <p className="text-sm text-destructive">{erros.cliente}</p>
-                )}
-              </div>
-            </div>
+      {/* 2º select: Tipo — só aparece após escolher a categoria. */}
+      {categoria !== "" && (
+        <div className="grid gap-2">
+          <Label htmlFor="tipo">Tipo</Label>
+          <Select
+            value={tipo}
+            onValueChange={(v) => setTipo(v as TipoDespesa)}
+          >
+            <SelectTrigger
+              id="tipo"
+              className="h-11"
+              aria-invalid={Boolean(erros.tipo)}
+            >
+              <SelectValue placeholder="Selecione o tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              {opcoesTipo.map((o) => (
+                <SelectItem key={o.valor} value={o.valor}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {erros.tipo && <p className="text-sm text-destructive">{erros.tipo}</p>}
+        </div>
+      )}
 
-            <div className="grid gap-2">
-              <Label htmlFor="km">Quilometragem (KM)</Label>
-              <Input
-                id="km"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.1"
-                value={km}
-                onChange={(e) => setKm(e.target.value)}
-                placeholder="0,0"
-                className="h-11 tabular-nums"
-                tabIndex={mostrarCliente ? undefined : -1}
-                aria-invalid={Boolean(erros.km)}
-              />
-              {erros.km && (
-                <p className="text-sm text-destructive">{erros.km}</p>
-              )}
-            </div>
+      {/* Trajeto por CLIENTE (Moto/Carro): origem e destino são clientes. */}
+      {mostrarTrajetoCliente && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="origem">Origem</Label>
+            <ClienteCombobox
+              id="origem"
+              clientes={clientes}
+              value={origemId}
+              onChange={setOrigemId}
+              placeholder="Selecione a origem"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="cliente">Cliente (destino)</Label>
+            <ClienteCombobox
+              id="cliente"
+              clientes={clientes}
+              value={clienteId}
+              onChange={setClienteId}
+              placeholder="Selecione o cliente"
+            />
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid gap-2">
-        <Label htmlFor="observacao">Observação (opcional)</Label>
-        <Textarea
-          id="observacao"
-          value={observacao}
-          onChange={(e) => setObservacao(e.target.value)}
-          placeholder="Detalhes adicionais do deslocamento."
-          rows={3}
-        />
-      </div>
+      {/* Trajeto por TEXTO (pedágio/estacionamento/passagem). */}
+      {mostrarTrajetoTexto && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="origem-texto">Origem (opcional)</Label>
+            <Input
+              id="origem-texto"
+              value={origemTexto}
+              onChange={(e) => setOrigemTexto(e.target.value)}
+              placeholder="Ex.: São Paulo"
+              className="h-11"
+              maxLength={200}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="destino-texto">Destino (opcional)</Label>
+            <Input
+              id="destino-texto"
+              value={destinoTexto}
+              onChange={(e) => setDestinoTexto(e.target.value)}
+              placeholder="Ex.: Campinas"
+              className="h-11"
+              maxLength={200}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Quilometragem (Moto/Carro). */}
+      {mostrarKm && (
+        <div className="grid gap-2">
+          <Label htmlFor="km">Quilometragem (KM)</Label>
+          <Input
+            id="km"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.1"
+            value={km}
+            onChange={(e) => setKm(e.target.value)}
+            placeholder="0,0"
+            className="h-11 tabular-nums"
+            aria-invalid={Boolean(erros.km)}
+          />
+          {erros.km && <p className="text-sm text-destructive">{erros.km}</p>}
+        </div>
+      )}
+
+      {/* Cliente avulso (tipos de despesa que aceitam cliente). */}
+      {mostrarClienteAvulso && (
+        <div className="grid gap-2">
+          <Label htmlFor="cliente-avulso">
+            Cliente{clienteObrigatorio ? "" : " (opcional)"}
+          </Label>
+          <ClienteCombobox
+            id="cliente-avulso"
+            clientes={clientes}
+            value={clienteId}
+            onChange={setClienteId}
+            placeholder="Selecione o cliente"
+            invalid={Boolean(erros.cliente)}
+          />
+          {erros.cliente && (
+            <p className="text-sm text-destructive">{erros.cliente}</p>
+          )}
+        </div>
+      )}
+
+      {/* Valor declarado (tipos de despesa). */}
+      {mostrarValor && (
+        <div className="grid gap-2">
+          <Label htmlFor="valor">Valor (R$)</Label>
+          <Input
+            id="valor"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={valorDeclarado}
+            onChange={(e) => setValorDeclarado(e.target.value)}
+            placeholder="0,00"
+            className="h-11 tabular-nums"
+            aria-invalid={Boolean(erros.valor)}
+          />
+          {erros.valor && (
+            <p className="text-sm text-destructive">{erros.valor}</p>
+          )}
+        </div>
+      )}
+
+      {/* Descrição (persistida, todos os tipos): detalha hotel, item, motivo,
+          ou observações do deslocamento. */}
+      {mostrarDescricao && (
+        <div className="grid gap-2">
+          <Label htmlFor="descricao">Descrição (opcional)</Label>
+          <Textarea
+            id="descricao"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder="Detalhes adicionais (hotel, item comprado, motivo do almoço…)."
+            rows={3}
+            maxLength={1000}
+          />
+        </div>
+      )}
 
       {/* Prévia do reembolso em destaque, recalculada em tempo real. */}
       {previa !== null && (
         <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-accent px-5 py-4">
           <div className="flex items-center gap-2 text-sm font-medium text-accent-foreground">
             <Sparkles className="size-4" />
-            Prévia do reembolso
+            {clientePermitido || mostrarValor || mostrarKm
+              ? "Prévia do reembolso"
+              : "Valor do reembolso"}
           </div>
           <span
             aria-live="polite"

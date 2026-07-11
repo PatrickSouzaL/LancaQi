@@ -10,6 +10,7 @@
  * ainda somamos em JS sobre o conjunto já restrito pela RLS + período.
  */
 import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { categoriaDe, TODOS_TIPOS } from "@/lib/despesas-tipos";
 import { quinzenaAnterior, quinzenaAtual, type Periodo } from "@/lib/periodo";
 import type {
   DashboardKpis,
@@ -17,7 +18,6 @@ import type {
   DistribuicaoTipo,
   GastoDiario,
   ResumoFechamentoUsuario,
-  TipoDespesa,
 } from "@/lib/types";
 
 /** Variação percentual entre dois valores, arredondada a 1 casa. */
@@ -67,7 +67,7 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   };
 }
 
-/** Evolução diária por tipo na quinzena. */
+/** Evolução diária por CATEGORIA (Deslocamento × Despesa) na quinzena. */
 export async function getGastosPorDia(
   periodo: Periodo = quinzenaAtual(),
 ): Promise<GastoDiario[]> {
@@ -77,29 +77,30 @@ export async function getGastosPorDia(
   for (const d of despesas) {
     const atual = porDia.get(d.data) ?? {
       data: d.data,
-      ESCRITORIO: 0,
-      CARRO: 0,
-      MOTO: 0,
+      DESLOCAMENTO: 0,
+      DESPESA: 0,
     };
-    atual[d.tipo] += d.valor_calculado;
+    atual[categoriaDe(d.tipo)] += d.valor_calculado;
     porDia.set(d.data, atual);
   }
 
   return [...porDia.values()].sort((a, b) => a.data.localeCompare(b.data));
 }
 
-/** Distribuição agregada por tipo na quinzena. */
+/**
+ * Distribuição agregada por tipo na quinzena. Considera TODOS os tipos e omite
+ * os sem valor no período (donut sem fatias vazias).
+ */
 export async function getDistribuicaoPorTipo(
   periodo: Periodo = quinzenaAtual(),
 ): Promise<DistribuicaoTipo[]> {
   const despesas = await getDespesas(periodo);
-  const tipos: TipoDespesa[] = ["ESCRITORIO", "CARRO", "MOTO"];
-  return tipos.map((tipo) => ({
+  return TODOS_TIPOS.map((tipo) => ({
     tipo,
     valor: despesas
       .filter((d) => d.tipo === tipo)
       .reduce((soma, d) => soma + d.valor_calculado, 0),
-  }));
+  })).filter((d) => d.valor > 0);
 }
 
 export async function getResumoFechamento(
