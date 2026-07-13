@@ -102,6 +102,25 @@ export function ExpenseCharts({
                 content={
                   <ChartTooltipContent
                     labelFormatter={(value) => rotuloDia(String(value))}
+                    // Linha custom: separa a categoria do valor (gap) e formata
+                    // em BRL — sem o número colado no rótulo, mais legível.
+                    formatter={(value, name, item) => (
+                      <div className="flex w-full items-center justify-between gap-6">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="size-2.5 shrink-0 rounded-[2px]"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-muted-foreground">
+                            {chartConfig[name as keyof typeof chartConfig]
+                              ?.label ?? name}
+                          </span>
+                        </div>
+                        <span className="font-mono font-medium tabular-nums text-foreground">
+                          {formatarBRL(Number(value))}
+                        </span>
+                      </div>
+                    )}
                   />
                 }
               />
@@ -137,7 +156,28 @@ export function ExpenseCharts({
                 content={
                   <ChartTooltipContent
                     nameKey="tipo"
-                    formatter={(value) => formatarBRL(Number(value))}
+                    hideLabel
+                    // Linha custom: cor da fatia + tipo + valor em BRL, com folga
+                    // entre o rótulo e o valor para leitura clara.
+                    formatter={(value, name, item) => (
+                      <div className="flex w-full items-center justify-between gap-6">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="size-2.5 shrink-0 rounded-[2px]"
+                            style={{
+                              backgroundColor: item.payload?.fill ?? item.color,
+                            }}
+                          />
+                          <span className="text-muted-foreground">
+                            {chartConfig[name as keyof typeof chartConfig]
+                              ?.label ?? name}
+                          </span>
+                        </div>
+                        <span className="font-mono font-medium tabular-nums text-foreground">
+                          {formatarBRL(Number(value))}
+                        </span>
+                      </div>
+                    )}
                   />
                 }
               />

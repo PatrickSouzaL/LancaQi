@@ -45,12 +45,17 @@ export interface AuditoriaFiltros {
   clienteId?: string;
   /** Filtra por tipo de deslocamento. */
   tipo?: TipoDespesa;
+  /** Data inicial do período (inclusiva, ISO `YYYY-MM-DD`). */
+  dataInicio?: string;
+  /** Data final do período (inclusiva, ISO `YYYY-MM-DD`). */
+  dataFim?: string;
 }
 
 /**
  * Auditoria (relatório) com filtros server-side combináveis: analista (`ilike`
- * no nome), cliente (`cliente_id`) e tipo. Tudo restrito pela RLS `is_admin()`.
- * O filtro por analista exige o join `!inner` para restringir as linhas-pai.
+ * no nome), cliente (`cliente_id`), tipo e período (intervalo de `data`). Tudo
+ * restrito pela RLS `is_admin()`. O filtro por analista exige o join `!inner`
+ * para restringir as linhas-pai.
  */
 export async function getDespesasParaAuditoria(
   filtros: AuditoriaFiltros = {},
@@ -72,6 +77,12 @@ export async function getDespesasParaAuditoria(
   }
   if (filtros.tipo) {
     query = query.eq("tipo", filtros.tipo);
+  }
+  if (filtros.dataInicio) {
+    query = query.gte("data", filtros.dataInicio);
+  }
+  if (filtros.dataFim) {
+    query = query.lte("data", filtros.dataFim);
   }
 
   const { data, error } = await query;

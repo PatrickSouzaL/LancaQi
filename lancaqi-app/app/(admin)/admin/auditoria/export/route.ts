@@ -43,6 +43,8 @@ export async function GET(request: Request) {
     termo: searchParams.get("q") ?? undefined,
     clienteId: searchParams.get("cliente") ?? undefined,
     tipo,
+    dataInicio: searchParams.get("de") ?? undefined,
+    dataFim: searchParams.get("ate") ?? undefined,
   });
 
   const cabecalho = [

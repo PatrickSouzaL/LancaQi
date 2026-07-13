@@ -133,3 +133,15 @@ export interface ResumoFechamentoUsuario {
   totalPendente: number;
   quantidadeLancamentos: number;
 }
+
+/**
+ * Linha do resumo por cliente no Fechamento Quinzenal. Agrega as pendentes que
+ * têm cliente vinculado (`cliente_id`); despesas sem cliente ficam de fora.
+ */
+export interface ResumoFechamentoCliente {
+  cliente_id: string;
+  cliente_nome: string;
+  totalKm: number;
+  totalPendente: number;
+  quantidadeLancamentos: number;
+}

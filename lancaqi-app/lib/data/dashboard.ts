@@ -9,6 +9,7 @@
  * Observação: idealmente estas agregações virariam SQL/RPC server-side; aqui
  * ainda somamos em JS sobre o conjunto já restrito pela RLS + período.
  */
+import { getClientes } from "@/lib/data/clientes";
 import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
 import { categoriaDe, TODOS_TIPOS } from "@/lib/despesas-tipos";
 import { quinzenaAnterior, quinzenaAtual, type Periodo } from "@/lib/periodo";
@@ -17,6 +18,7 @@ import type {
   Despesa,
   DistribuicaoTipo,
   GastoDiario,
+  ResumoFechamentoCliente,
   ResumoFechamentoUsuario,
 } from "@/lib/types";
 
@@ -126,4 +128,49 @@ export async function getResumoFechamento(
   return [...porUsuario.values()].sort(
     (a, b) => b.totalPendente - a.totalPendente,
   );
+}
+
+/** Sentinela do agrupamento das pendentes sem cliente vinculado. */
+export const SEM_CLIENTE_ID = "__sem_cliente__";
+
+/**
+ * Resumo das pendentes agrupadas por CLIENTE de destino. O nome vem do cadastro
+ * de clientes; um `cliente_id` órfão cai em "Cliente removido". As despesas sem
+ * cliente vinculado somam numa linha "Sem cliente" (`SEM_CLIENTE_ID`), sempre
+ * ao final, para o resumo fechar o total do período.
+ */
+export async function getResumoFechamentoPorCliente(
+  periodo?: Periodo,
+): Promise<ResumoFechamentoCliente[]> {
+  const [pendentes, clientes] = await Promise.all([
+    getDespesasPendentes(periodo),
+    getClientes(),
+  ]);
+
+  const nomePorId = new Map(clientes.map((c) => [c.id, c.nome]));
+
+  const porCliente = new Map<string, ResumoFechamentoCliente>();
+  for (const d of pendentes) {
+    const chave = d.cliente_id ?? SEM_CLIENTE_ID;
+    const atual = porCliente.get(chave) ?? {
+      cliente_id: chave,
+      cliente_nome: d.cliente_id
+        ? (nomePorId.get(d.cliente_id) ?? "Cliente removido")
+        : "Sem cliente",
+      totalKm: 0,
+      totalPendente: 0,
+      quantidadeLancamentos: 0,
+    };
+    atual.totalKm += d.quantidade_km;
+    atual.totalPendente += d.valor_calculado;
+    atual.quantidadeLancamentos += 1;
+    porCliente.set(chave, atual);
+  }
+
+  // Clientes por valor decrescente; "Sem cliente" fica sempre por último.
+  return [...porCliente.values()].sort((a, b) => {
+    if (a.cliente_id === SEM_CLIENTE_ID) return 1;
+    if (b.cliente_id === SEM_CLIENTE_ID) return -1;
+    return b.totalPendente - a.totalPendente;
+  });
 }

@@ -333,7 +333,7 @@ export function FormularioDespesa({
       <div className="grid gap-2">
         <Label htmlFor="categoria">Categoria</Label>
         <Select value={categoria} onValueChange={onCategoriaChange}>
-          <SelectTrigger id="categoria" className="h-11">
+          <SelectTrigger id="categoria" className="!h-11">
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -356,7 +356,7 @@ export function FormularioDespesa({
           >
             <SelectTrigger
               id="tipo"
-              className="h-11"
+              className="!h-11"
               aria-invalid={Boolean(erros.tipo)}
             >
               <SelectValue placeholder="Selecione o tipo" />

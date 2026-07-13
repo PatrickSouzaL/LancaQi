@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Download, Loader2, Search } from "lucide-react";
+import { Download, Loader2, Search, X } from "lucide-react";
 
 import { AnalistaCell } from "@/components/admin/AnalistaCell";
 import { AuditoriaAcoes } from "@/components/admin/AuditoriaAcoes";
@@ -11,6 +11,7 @@ import {
   ClienteCombobox,
   type OpcaoCliente,
 } from "@/components/ClienteCombobox";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,6 +56,8 @@ export function AuditoriaClient({
   termoInicial,
   clienteInicial,
   tipoInicial,
+  dataInicioInicial,
+  dataFimInicial,
 }: {
   despesas: Despesa[];
   clientes: OpcaoCliente[];
@@ -62,6 +65,8 @@ export function AuditoriaClient({
   termoInicial: string;
   clienteInicial: string | null;
   tipoInicial: TipoDespesa | null;
+  dataInicioInicial: string | null;
+  dataFimInicial: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -103,8 +108,21 @@ export function AuditoriaClient({
     return () => clearTimeout(t);
   }, [filtro, pathname, router, searchParams]);
 
+  /** Limpa todos os filtros (texto, cliente, tipo, período) de uma vez. */
+  function limparFiltros() {
+    setFiltro("");
+    ultimoSincronizado.current = "";
+    startTransition(() => {
+      router.replace(pathname, { scroll: false });
+    });
+  }
+
   const temFiltro =
-    Boolean(termoInicial) || clienteInicial !== null || tipoInicial !== null;
+    Boolean(termoInicial) ||
+    clienteInicial !== null ||
+    tipoInicial !== null ||
+    dataInicioInicial !== null ||
+    dataFimInicial !== null;
   const qs = searchParams.toString();
   const exportHref = `/admin/auditoria/export${qs ? `?${qs}` : ""}`;
 
@@ -122,7 +140,9 @@ export function AuditoriaClient({
           </Button>
         </div>
 
-        {/* Filtros: analista (texto), cliente (combobox), tipo (select). */}
+        {/* Filtros: analista (texto), cliente (combobox), tipo (select),
+            período (range picker). Todos os controles com a MESMA altura
+            (h-10) para um alinhamento consistente. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -130,7 +150,7 @@ export function AuditoriaClient({
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
               placeholder="Buscar por analista..."
-              className="pl-8 pr-8"
+              className="h-10 pl-8 pr-8"
               aria-label="Buscar por analista"
             />
             {atualizando && (
@@ -145,6 +165,7 @@ export function AuditoriaClient({
               onChange={(id) => aplicarFiltro({ cliente: id })}
               placeholder="Todos os clientes"
               incluirTodos
+              triggerClassName="h-10"
             />
           </div>
 
@@ -154,7 +175,7 @@ export function AuditoriaClient({
               aplicarFiltro({ tipo: v === TODOS ? null : v })
             }
           >
-            <SelectTrigger className="h-11 w-full sm:w-44" aria-label="Tipo">
+            <SelectTrigger className="!h-10 w-full sm:w-44" aria-label="Tipo">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -166,6 +187,25 @@ export function AuditoriaClient({
               ))}
             </SelectContent>
           </Select>
+
+          {/* Período: intervalo inclusivo [de, até] sobre a coluna `data`. */}
+          <DateRangePicker
+            de={dataInicioInicial}
+            ate={dataFimInicial}
+            onChange={({ de, ate }) => aplicarFiltro({ de, ate })}
+            className="h-10 w-full sm:w-64"
+          />
+
+          {temFiltro && (
+            <Button
+              variant="ghost"
+              onClick={limparFiltros}
+              className="h-10 text-muted-foreground"
+            >
+              <X className="size-4" />
+              Limpar filtros
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>

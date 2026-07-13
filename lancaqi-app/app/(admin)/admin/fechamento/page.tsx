@@ -3,8 +3,10 @@ import { CalendarClock } from "lucide-react";
 import { PageHeading } from "@/components/PageHeading";
 import { AnalistaCell } from "@/components/admin/AnalistaCell";
 import { FechamentoClient } from "@/components/admin/FechamentoClient";
+import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -19,19 +21,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getDespesasPendentes } from "@/lib/data/despesas";
-import { getResumoFechamento } from "@/lib/data/dashboard";
+import {
+  getResumoFechamento,
+  getResumoFechamentoPorCliente,
+  SEM_CLIENTE_ID,
+} from "@/lib/data/dashboard";
 import { formatarBRL, formatarKm } from "@/lib/format";
 import { quinzenaAtual } from "@/lib/periodo";
 
 export default async function FechamentoPage() {
   // Fechamento da quinzena vigente: PENDENTE + intervalo de datas da quinzena.
   const periodo = quinzenaAtual();
-  const [pendentes, resumo] = await Promise.all([
+  const [pendentes, resumo, resumoClientes] = await Promise.all([
     getDespesasPendentes(periodo),
     getResumoFechamento(periodo),
+    getResumoFechamentoPorCliente(periodo),
   ]);
 
   const totalPeriodo = resumo.reduce((soma, r) => soma + r.totalPendente, 0);
+  const totalClientes = resumoClientes.reduce(
+    (soma, r) => soma + r.totalPendente,
+    0,
+  );
 
   return (
     <>
@@ -54,6 +65,17 @@ export default async function FechamentoPage() {
             Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)} pendentes
             de pagamento
           </CardDescription>
+          {resumo.length > 0 && (
+            <CardAction>
+              <Button variant="outline" asChild>
+                {/* Download server-side (GET autenticado): resumo por analista.
+                    XLSX com uma aba por analista + aba de resumo. */}
+                <a href="/admin/fechamento/export/analistas" download>
+                  Exportar Excel
+                </a>
+              </Button>
+            </CardAction>
+          )}
         </CardHeader>
         <CardContent>
           {resumo.length === 0 ? (
@@ -87,6 +109,71 @@ export default async function FechamentoPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>Resumo por Cliente</CardTitle>
+          <CardDescription>
+            Quinzena de {periodo.rotulo} • {formatarBRL(totalClientes)}{" "}
+          </CardDescription>
+          {resumoClientes.length > 0 && (
+            <CardAction>
+              <Button variant="outline" asChild>
+                {/* Download server-side (GET autenticado): resumo por cliente.
+                    XLSX com uma aba por cliente + aba de resumo. */}
+                <a href="/admin/fechamento/export/clientes" download>
+                  Exportar Excel
+                </a>
+              </Button>
+            </CardAction>
+          )}
+        </CardHeader>
+        <CardContent>
+          {resumoClientes.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Nenhuma despesa pendente no período.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="text-right">Lançamentos</TableHead>
+                  <TableHead className="text-right">KM</TableHead>
+                  <TableHead className="text-right">Total (R$)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resumoClientes.map((r) => {
+                  const semCliente = r.cliente_id === SEM_CLIENTE_ID;
+                  return (
+                    <TableRow key={r.cliente_id}>
+                      <TableCell
+                        className={
+                          semCliente
+                            ? "italic text-muted-foreground"
+                            : "font-medium"
+                        }
+                      >
+                        {r.cliente_nome}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {r.quantidadeLancamentos}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatarKm(r.totalKm)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">
+                        {formatarBRL(r.totalPendente)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

@@ -35,6 +35,7 @@ export function ClienteCombobox({
   disabled = false,
   incluirTodos = false,
   labelTodos = "Todos os clientes",
+  triggerClassName,
 }: {
   clientes: OpcaoCliente[];
   value: string | null;
@@ -46,6 +47,8 @@ export function ClienteCombobox({
   /** Mostra uma opção "todos" (limpa o filtro → onChange(null)). Uso em filtros. */
   incluirTodos?: boolean;
   labelTodos?: string;
+  /** Sobrescreve o estilo do gatilho (ex.: padronizar altura numa barra de filtros). */
+  triggerClassName?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
@@ -83,6 +86,7 @@ export function ClienteCombobox({
             "h-11 w-full justify-between px-3 font-normal",
             !selecionado && "text-muted-foreground",
             invalid && "border-destructive focus-visible:ring-destructive/20",
+            triggerClassName,
           )}
         >
           <span className="truncate">
