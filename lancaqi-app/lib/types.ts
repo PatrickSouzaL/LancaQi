@@ -147,4 +147,6 @@ export interface ResumoFechamentoCliente {
   totalKm: number;
   totalPendente: number;
   quantidadeLancamentos: number;
+  /** Cliente interno (ex.: "Casa", "Hype Tecnologia") — ocultável no resumo. */
+  interno: boolean;
 }

@@ -22,17 +22,25 @@ export const runtime = "nodejs";
  * analista de origem) cuja soma fecha o total daquele cliente. GET autenticado
  * (cookies de sessão) — o link de download abre direto no navegador.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const contexto = await exigirAdmin();
   if (!contexto.ok) {
     return new Response(contexto.error, { status: 403 });
   }
 
+  // `?internos=1` inclui clientes internos (Casa, Hype Tecnologia); por padrão
+  // eles ficam de fora, acompanhando o estado inicial do resumo na tela.
+  const incluirInternos =
+    new URL(request.url).searchParams.get("internos") === "1";
+
   const periodo = quinzenaAtual();
-  const [resumo, pendentes] = await Promise.all([
+  const [resumoCompleto, pendentes] = await Promise.all([
     getResumoFechamentoPorCliente(periodo),
     getDespesasPendentes(periodo),
   ]);
+  const resumo = incluirInternos
+    ? resumoCompleto
+    : resumoCompleto.filter((r) => !r.interno);
 
   // Despesas agrupadas por cliente (as sem cliente caem no bucket SEM_CLIENTE_ID).
   const porCliente = new Map<string, Despesa[]>();

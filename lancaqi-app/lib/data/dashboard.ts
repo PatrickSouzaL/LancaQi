@@ -9,6 +9,7 @@
  * Observação: idealmente estas agregações virariam SQL/RPC server-side; aqui
  * ainda somamos em JS sobre o conjunto já restrito pela RLS + período.
  */
+import { SEM_CLIENTE_ID, isClienteInterno } from "@/lib/clientes-fechamento";
 import { getClientes } from "@/lib/data/clientes";
 import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
 import { categoriaDe, TODOS_TIPOS } from "@/lib/despesas-tipos";
@@ -141,8 +142,10 @@ export async function getResumoFechamento(
   );
 }
 
-/** Sentinela do agrupamento das pendentes sem cliente vinculado. */
-export const SEM_CLIENTE_ID = "__sem_cliente__";
+// Constante e helpers puros vivem em módulo neutro (sem deps de servidor) para
+// poderem ser importados também por componentes cliente. Reexporta-se daqui por
+// compatibilidade com quem já importava de dashboard.
+export { SEM_CLIENTE_ID, isClienteInterno };
 
 /**
  * Resumo das pendentes agrupadas por CLIENTE de destino. O nome vem do cadastro
@@ -163,14 +166,16 @@ export async function getResumoFechamentoPorCliente(
   const porCliente = new Map<string, ResumoFechamentoCliente>();
   for (const d of pendentes) {
     const chave = d.cliente_id ?? SEM_CLIENTE_ID;
+    const cliente_nome = d.cliente_id
+      ? (nomePorId.get(d.cliente_id) ?? "Cliente removido")
+      : "Sem cliente";
     const atual = porCliente.get(chave) ?? {
       cliente_id: chave,
-      cliente_nome: d.cliente_id
-        ? (nomePorId.get(d.cliente_id) ?? "Cliente removido")
-        : "Sem cliente",
+      cliente_nome,
       totalKm: 0,
       totalPendente: 0,
       quantidadeLancamentos: 0,
+      interno: isClienteInterno(cliente_nome),
     };
     atual.totalKm += d.quantidade_km;
     atual.totalPendente += d.valor_calculado;
@@ -179,6 +184,8 @@ export async function getResumoFechamentoPorCliente(
   }
 
   // Clientes por valor decrescente; "Sem cliente" fica sempre por último.
+  // Clientes internos (ex.: "Casa", "Hype Tecnologia") vêm marcados com
+  // `interno` para que a UI possa ocultá-los opcionalmente.
   return [...porCliente.values()].sort((a, b) => {
     if (a.cliente_id === SEM_CLIENTE_ID) return 1;
     if (b.cliente_id === SEM_CLIENTE_ID) return -1;
