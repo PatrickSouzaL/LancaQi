@@ -11,6 +11,7 @@ import {
   PieChart,
   XAxis,
 } from "recharts";
+import type { TooltipContentProps } from "recharts";
 
 import {
   Card,
@@ -56,6 +57,57 @@ function rotuloDia(iso: string): string {
   return `${dia}/${mes}`;
 }
 
+/** Séries empilhadas do gráfico de barras (chaves de dado). */
+type SerieBarra = "ESCRITORIO" | "CARRO" | "MOTO" | "DESLOCAMENTO" | "DESPESA";
+
+/** Canto arredondado aplicado ao topo da pilha. */
+const RAIO_TOPO: [number, number, number, number] = [4, 4, 0, 0];
+
+/**
+ * Tooltip do gráfico de barras. Lista só as séries com valor > 0 (nos dias com
+ * despesa, os 3 tipos de deslocamento vêm zerados; nos dias sem, o agregado),
+ * cada uma com sua cor, rótulo e valor em BRL.
+ */
+function TooltipGastos({
+  active,
+  payload,
+  label,
+}: Partial<TooltipContentProps<number, string>>) {
+  if (!active || !payload?.length) return null;
+  const itens = payload.filter((p) => Number(p.value) > 0);
+  if (!itens.length) return null;
+
+  return (
+    <div className="grid min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+      <div className="font-medium">{rotuloDia(String(label))}</div>
+      <div className="grid gap-1.5">
+        {itens.map((item) => {
+          const chave = String(item.dataKey) as keyof typeof chartConfig;
+          return (
+            <div
+              key={String(item.dataKey)}
+              className="flex items-center justify-between gap-6"
+            >
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="size-2.5 shrink-0 rounded-[2px]"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="text-muted-foreground">
+                  {chartConfig[chave]?.label ?? String(item.name)}
+                </span>
+              </div>
+              <span className="font-mono font-medium tabular-nums text-foreground">
+                {formatarBRL(Number(item.value))}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function ExpenseCharts({
   gastosPorDia,
   distribuicao,
@@ -67,6 +119,54 @@ export function ExpenseCharts({
     () => distribuicao.reduce((soma, d) => soma + d.valor, 0),
     [distribuicao],
   );
+
+  // Barras empilhadas por dia. Valor 0 vira null → recharts não desenha o
+  // segmento nem lista no tooltip. Dias COM despesa: deslocamento agregado numa
+  // barra + despesa. Dias SEM despesa: deslocamento detalhado nos 3 tipos.
+  const dadosBarra = useMemo(() => {
+    const naoZero = (v: number) => (v > 0 ? v : null);
+    return gastosPorDia.map((g) => {
+      const semDespesa = g.DESPESA === 0;
+      const deslocamento = g.ESCRITORIO + g.CARRO + g.MOTO;
+      return {
+        data: g.data,
+        ESCRITORIO: semDespesa ? naoZero(g.ESCRITORIO) : null,
+        CARRO: semDespesa ? naoZero(g.CARRO) : null,
+        MOTO: semDespesa ? naoZero(g.MOTO) : null,
+        DESLOCAMENTO: semDespesa ? null : naoZero(deslocamento),
+        DESPESA: semDespesa ? null : naoZero(g.DESPESA),
+      };
+    });
+  }, [gastosPorDia]);
+
+  // Séries que de fato têm dado no período — só elas viram barra e entram na
+  // legenda (que fica dinâmica). Sem despesa no período, "Despesa" e o
+  // "Deslocamento" agregado somem; sobram só Escritório/Carro/Moto.
+  const seriesAtivas = useMemo(() => {
+    const tem = (k: SerieBarra) => dadosBarra.some((d) => d[k] != null);
+    return {
+      ESCRITORIO: tem("ESCRITORIO"),
+      CARRO: tem("CARRO"),
+      MOTO: tem("MOTO"),
+      DESLOCAMENTO: tem("DESLOCAMENTO"),
+      DESPESA: tem("DESPESA"),
+    };
+  }, [dadosBarra]);
+
+  // Topo de cada grupo (recebe o canto arredondado). Detalhe e agregado são
+  // mutuamente exclusivos por dia, então cada grupo arredonda seu próprio topo.
+  const topoDetalhe = seriesAtivas.MOTO
+    ? "MOTO"
+    : seriesAtivas.CARRO
+      ? "CARRO"
+      : seriesAtivas.ESCRITORIO
+        ? "ESCRITORIO"
+        : null;
+  const topoAgregado = seriesAtivas.DESPESA
+    ? "DESPESA"
+    : seriesAtivas.DESLOCAMENTO
+      ? "DESLOCAMENTO"
+      : null;
 
   const dadosDonut = useMemo(
     () =>
@@ -84,12 +184,13 @@ export function ExpenseCharts({
         <CardHeader>
           <CardTitle>Gastos por Dia</CardTitle>
           <CardDescription>
-            Evolução diária da quinzena por categoria
+            Evolução diária da quinzena — deslocamento detalhado por tipo nos
+            dias sem despesa
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-64 w-full">
-            <BarChart accessibilityLayer data={gastosPorDia}>
+            <BarChart accessibilityLayer data={dadosBarra}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="data"
@@ -98,44 +199,51 @@ export function ExpenseCharts({
                 tickMargin={8}
                 tickFormatter={rotuloDia}
               />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value) => rotuloDia(String(value))}
-                    // Linha custom: separa a categoria do valor (gap) e formata
-                    // em BRL — sem o número colado no rótulo, mais legível.
-                    formatter={(value, name, item) => (
-                      <div className="flex w-full items-center justify-between gap-6">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="size-2.5 shrink-0 rounded-[2px]"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <span className="text-muted-foreground">
-                            {chartConfig[name as keyof typeof chartConfig]
-                              ?.label ?? name}
-                          </span>
-                        </div>
-                        <span className="font-mono font-medium tabular-nums text-foreground">
-                          {formatarBRL(Number(value))}
-                        </span>
-                      </div>
-                    )}
-                  />
-                }
-              />
+              <ChartTooltip content={<TooltipGastos />} />
               <ChartLegend content={<ChartLegendContent className="text-xs" />} />
-              <Bar
-                dataKey="DESLOCAMENTO"
-                stackId="a"
-                fill="var(--color-DESLOCAMENTO)"
-              />
-              <Bar
-                dataKey="DESPESA"
-                stackId="a"
-                fill="var(--color-DESPESA)"
-                radius={[4, 4, 0, 0]}
-              />
+              {/* Detalhe do deslocamento (dias sem despesa). Só renderiza a
+                  série que tem dado — a legenda acompanha. */}
+              {seriesAtivas.ESCRITORIO && (
+                <Bar
+                  dataKey="ESCRITORIO"
+                  stackId="a"
+                  fill="var(--color-ESCRITORIO)"
+                  radius={topoDetalhe === "ESCRITORIO" ? RAIO_TOPO : undefined}
+                />
+              )}
+              {seriesAtivas.CARRO && (
+                <Bar
+                  dataKey="CARRO"
+                  stackId="a"
+                  fill="var(--color-CARRO)"
+                  radius={topoDetalhe === "CARRO" ? RAIO_TOPO : undefined}
+                />
+              )}
+              {seriesAtivas.MOTO && (
+                <Bar
+                  dataKey="MOTO"
+                  stackId="a"
+                  fill="var(--color-MOTO)"
+                  radius={topoDetalhe === "MOTO" ? RAIO_TOPO : undefined}
+                />
+              )}
+              {/* Deslocamento agregado + despesa (dias com despesa). */}
+              {seriesAtivas.DESLOCAMENTO && (
+                <Bar
+                  dataKey="DESLOCAMENTO"
+                  stackId="a"
+                  fill="var(--color-DESLOCAMENTO)"
+                  radius={topoAgregado === "DESLOCAMENTO" ? RAIO_TOPO : undefined}
+                />
+              )}
+              {seriesAtivas.DESPESA && (
+                <Bar
+                  dataKey="DESPESA"
+                  stackId="a"
+                  fill="var(--color-DESPESA)"
+                  radius={topoAgregado === "DESPESA" ? RAIO_TOPO : undefined}
+                />
+              )}
             </BarChart>
           </ChartContainer>
         </CardContent>

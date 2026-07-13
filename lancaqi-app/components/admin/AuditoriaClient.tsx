@@ -6,6 +6,10 @@ import { Download, Loader2, Search, X } from "lucide-react";
 
 import { AnalistaCell } from "@/components/admin/AnalistaCell";
 import { AuditoriaAcoes } from "@/components/admin/AuditoriaAcoes";
+import {
+  CabecalhoOrdenavel,
+  useDespesasOrdenadas,
+} from "@/components/admin/OrdenacaoDespesas";
 import { StatusBadge, TipoBadge } from "@/components/admin/StatusBadges";
 import {
   ClienteCombobox,
@@ -75,6 +79,9 @@ export function AuditoriaClient({
   const [filtro, setFiltro] = useState(termoInicial);
   const [atualizando, startTransition] = useTransition();
   const ultimoSincronizado = useRef(termoInicial);
+
+  // Ordenação client-side (headers clicáveis). Padrão: data desc.
+  const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(despesas);
 
   /** Aplica mudanças de filtro na URL (preservando os demais params). */
   function aplicarFiltro(mudancas: Record<string, string | null>) {
@@ -219,18 +226,62 @@ export function AuditoriaClient({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Analista</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Destino</TableHead>
-                <TableHead className="text-right">KM</TableHead>
-                <TableHead className="text-right">Valor (R$)</TableHead>
-                <TableHead>Status</TableHead>
+                <CabecalhoOrdenavel
+                  chave="usuario_nome"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Analista
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="data"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Data
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="tipo"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Tipo
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="destino"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Destino
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="quantidade_km"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                  align="right"
+                >
+                  KM
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="valor_calculado"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                  align="right"
+                >
+                  Valor (R$)
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="status"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Status
+                </CabecalhoOrdenavel>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {despesas.map((d) => (
+              {ordenadas.map((d) => (
                 <TableRow key={d.id}>
                   <TableCell>
                     <AnalistaCell nome={d.usuario_nome} />

@@ -69,7 +69,11 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   };
 }
 
-/** Evolução diária por CATEGORIA (Deslocamento × Despesa) na quinzena. */
+/**
+ * Evolução diária na quinzena: despesa agregada + deslocamento detalhado por
+ * tipo (Escritório/Carro/Moto). A soma dos três tipos reconstrói o total de
+ * deslocamento; o gráfico escolhe mostrar o detalhe ou o agregado por dia.
+ */
 export async function getGastosPorDia(
   periodo: Periodo = quinzenaAtual(),
 ): Promise<GastoDiario[]> {
@@ -79,10 +83,17 @@ export async function getGastosPorDia(
   for (const d of despesas) {
     const atual = porDia.get(d.data) ?? {
       data: d.data,
-      DESLOCAMENTO: 0,
+      ESCRITORIO: 0,
+      CARRO: 0,
+      MOTO: 0,
       DESPESA: 0,
     };
-    atual[categoriaDe(d.tipo)] += d.valor_calculado;
+    if (categoriaDe(d.tipo) === "DESPESA") {
+      atual.DESPESA += d.valor_calculado;
+    } else {
+      // Deslocamento: o tipo é sempre ESCRITORIO | CARRO | MOTO (chaves do dia).
+      atual[d.tipo as "ESCRITORIO" | "CARRO" | "MOTO"] += d.valor_calculado;
+    }
     porDia.set(d.data, atual);
   }
 

@@ -6,6 +6,10 @@ import { toast } from "sonner";
 
 import { marcarLotePago } from "@/app/actions/admin-actions";
 import { AnalistaCell } from "@/components/admin/AnalistaCell";
+import {
+  CabecalhoOrdenavel,
+  useDespesasOrdenadas,
+} from "@/components/admin/OrdenacaoDespesas";
 import { TipoBadge } from "@/components/admin/StatusBadges";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +42,9 @@ import type { Despesa } from "@/lib/types";
 export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [processando, startTransition] = useTransition();
+
+  // Ordenação client-side (headers clicáveis). Padrão: data desc.
+  const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(pendentes);
 
   const totalSelecionado = useMemo(
     () =>
@@ -136,15 +143,47 @@ export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
                     aria-label="Selecionar todos"
                   />
                 </TableHead>
-                <TableHead>Analista</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">KM</TableHead>
-                <TableHead className="text-right">Valor (R$)</TableHead>
+                <CabecalhoOrdenavel
+                  chave="usuario_nome"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Analista
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="data"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Data
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="tipo"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                >
+                  Tipo
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="quantidade_km"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                  align="right"
+                >
+                  KM
+                </CabecalhoOrdenavel>
+                <CabecalhoOrdenavel
+                  chave="valor_calculado"
+                  ordenacao={ordenacao}
+                  onOrdenar={alternar}
+                  align="right"
+                >
+                  Valor (R$)
+                </CabecalhoOrdenavel>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pendentes.map((d) => {
+              {ordenadas.map((d) => {
                 const marcado = selecionados.has(d.id);
                 return (
                   <TableRow key={d.id} data-state={marcado ? "selected" : undefined}>

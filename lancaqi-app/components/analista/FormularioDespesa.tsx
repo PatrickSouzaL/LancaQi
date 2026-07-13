@@ -3,7 +3,15 @@
 import { useMemo, useState, useTransition } from "react";
 import { Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { format, parseISO, subYears, isAfter, isBefore, startOfDay } from "date-fns";
+import {
+  format,
+  parseISO,
+  subYears,
+  subDays,
+  isAfter,
+  isBefore,
+  startOfDay,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import {
@@ -123,6 +131,13 @@ export function FormularioDespesa({
   const [erros, setErros] = useState<Erros>({});
   const [enviando, startTransition] = useTransition();
 
+  // Janela de datas permitida. Na CRIAÇÃO, limita a no máximo 3 dias no passado;
+  // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
+  const hoje = startOfDay(new Date());
+  const limiteInferior = startOfDay(
+    editando ? subYears(new Date(), 1) : subDays(new Date(), 3),
+  );
+
   // Visibilidade dos campos finais conforme o tipo escolhido.
   const temTipo = tipo !== "";
   const mostrarKm = temTipo && usaKm(tipo);
@@ -150,14 +165,13 @@ export function FormularioDespesa({
       e.data = "Informe a data.";
     } else {
       try {
-        const parsedDate = parseISO(data);
-        const today = startOfDay(new Date());
-        const oneYearAgo = startOfDay(subYears(new Date(), 1));
-        const target = startOfDay(parsedDate);
-        if (isAfter(target, today)) {
+        const target = startOfDay(parseISO(data));
+        if (isAfter(target, hoje)) {
           e.data = "A data não pode ser no futuro.";
-        } else if (isBefore(target, oneYearAgo)) {
-          e.data = "A data não pode ter mais de 1 ano para trás.";
+        } else if (isBefore(target, limiteInferior)) {
+          e.data = editando
+            ? "A data não pode ter mais de 1 ano para trás."
+            : "A data não pode ter mais de 3 dias no passado.";
         }
       } catch {
         e.data = "Data inválida.";
@@ -317,10 +331,8 @@ export function FormularioDespesa({
                 }
               }}
               disabled={(date) => {
-                const today = startOfDay(new Date());
-                const oneYearAgo = startOfDay(subYears(new Date(), 1));
                 const target = startOfDay(date);
-                return isAfter(target, today) || isBefore(target, oneYearAgo);
+                return isAfter(target, hoje) || isBefore(target, limiteInferior);
               }}
               initialFocus
             />

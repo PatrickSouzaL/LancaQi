@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { parseISO, subYears, isAfter, isBefore, startOfDay } from "date-fns";
+import {
+  parseISO,
+  subYears,
+  subDays,
+  isAfter,
+  isBefore,
+  startOfDay,
+} from "date-fns";
 
 import { calcularPrevia } from "@/lib/calculo";
 import {
@@ -108,9 +115,27 @@ const REFINE_VALOR = {
   message: "Informe um valor maior que zero.",
 };
 
+// Regra exclusiva da CRIAÇÃO: a data não pode ter mais de 3 dias no passado.
+// (A edição continua sob a janela de 1 ano do schema base — não trava despesas
+// antigas já registradas.)
+const exigeCriacaoRecente = (d: DespesaCampos) => {
+  try {
+    const target = startOfDay(parseISO(d.data));
+    const tresDiasAtras = startOfDay(subDays(new Date(), 3));
+    return !isBefore(target, tresDiasAtras);
+  } catch {
+    return false;
+  }
+};
+const REFINE_DATA_RECENTE = {
+  path: ["data"],
+  message: "A data não pode ter mais de 3 dias no passado.",
+};
+
 const CriarDespesaSchema = DespesaCamposSchema.refine(exigeKmValido, REFINE_KM)
   .refine(exigeClienteObrigatorio, REFINE_CLIENTE)
-  .refine(exigeValorDeclarado, REFINE_VALOR);
+  .refine(exigeValorDeclarado, REFINE_VALOR)
+  .refine(exigeCriacaoRecente, REFINE_DATA_RECENTE);
 
 const EditarDespesaSchema = DespesaCamposSchema.extend({
   id: z.string().uuid("Identificador inválido."),

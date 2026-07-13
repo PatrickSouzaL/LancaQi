@@ -109,13 +109,16 @@ export interface DashboardKpis {
 }
 
 /**
- * Total por dia, decomposto por CATEGORIA (barras empilhadas do Dashboard).
- * Com 11 tipos, empilhar por tipo poluiria o gráfico; a decomposição
- * Deslocamento × Despesa mantém a leitura limpa sem perder nenhum valor.
+ * Total por dia para as barras empilhadas do Dashboard. O deslocamento é
+ * quebrado nos 3 tipos (Escritório/Carro/Moto) e a despesa fica agregada.
+ * A apresentação decide o empilhamento: dias COM despesa mostram o deslocamento
+ * somado (1 barra) + despesa; dias SEM despesa detalham os tipos.
  */
 export interface GastoDiario {
   data: string; // ISO 8601
-  DESLOCAMENTO: number;
+  ESCRITORIO: number;
+  CARRO: number;
+  MOTO: number;
   DESPESA: number;
 }
 
