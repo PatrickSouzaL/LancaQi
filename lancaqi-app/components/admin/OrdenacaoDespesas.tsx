@@ -42,13 +42,6 @@ function comparar(a: Despesa, b: Despesa, chave: ChaveDespesa): number {
 const POR_DATA_DESC = (a: Despesa, b: Despesa) => b.data.localeCompare(a.data);
 
 /**
- * Ordem neutra pela DATA DE CRIAÇÃO (registro no banco), mais nova primeiro —
- * `criado_em` é ISO/timestamptz, comparável lexicograficamente.
- */
-export const POR_CRIACAO_DESC = (a: Despesa, b: Despesa) =>
-  b.criado_em.localeCompare(a.criado_em);
-
-/**
  * Ordenação client-side de despesas com ciclo de 3 estados por coluna:
  * neutro → crescente → decrescente → neutro.
  *

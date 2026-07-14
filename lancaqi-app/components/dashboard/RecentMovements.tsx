@@ -19,6 +19,11 @@ import { formatarBRL, formatarData } from "@/lib/format";
 import type { Despesa } from "@/lib/types";
 
 export function RecentMovements({ despesas }: { despesas: Despesa[] }) {
+  // Exibe pela DATA da despesa (mais nova primeiro), não pela ordem de criação
+  // do banco. `data` é ISO (YYYY-MM-DD) — comparável lexicograficamente; o sort
+  // é estável, então despesas do mesmo dia preservam a ordem recebida.
+  const ordenadas = [...despesas].sort((a, b) => b.data.localeCompare(a.data));
+
   return (
     <Card className="shadow-sm">
       <CardHeader>
@@ -42,7 +47,7 @@ export function RecentMovements({ despesas }: { despesas: Despesa[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {despesas.map((d) => (
+              {ordenadas.map((d) => (
                 <TableRow key={d.id}>
                   <TableCell>
                     <AnalistaCell nome={d.usuario_nome} />

@@ -23,6 +23,7 @@ export async function getDespesas(periodo?: Periodo): Promise<Despesa[]> {
   let query = supabase
     .from("despesas")
     .select(DESPESA_SELECT)
+    .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
   if (periodo) {
@@ -66,6 +67,7 @@ export async function getDespesasParaAuditoria(
   let query = supabase
     .from("despesas")
     .select(busca ? DESPESA_SELECT_BUSCA : DESPESA_SELECT)
+    .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
   if (busca) {
@@ -97,12 +99,17 @@ export async function getDespesasParaAuditoria(
   return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
 }
 
-/** Últimas N movimentações (Dashboard). */
+/**
+ * Últimas N movimentações (Dashboard). Ordena pela DATA da despesa (mais nova
+ * primeiro) — não pela ordem de criação no banco — com `criado_em` como
+ * desempate para lançamentos do mesmo dia.
+ */
 export async function getDespesasRecentes(limite = 5): Promise<Despesa[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("despesas")
     .select(DESPESA_SELECT)
+    .order("data", { ascending: false })
     .order("criado_em", { ascending: false })
     .limit(limite);
 
@@ -126,6 +133,7 @@ export async function getDespesasPendentes(
     .from("despesas")
     .select(DESPESA_SELECT)
     .eq("status", "PENDENTE")
+    .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
   if (periodo) {

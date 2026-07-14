@@ -33,6 +33,7 @@ export async function getDespesasDoAnalista(
     .from("despesas")
     .select(DESPESA_SELECT)
     .eq("usuario_id", perfil.id)
+    .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
   if (periodo) {

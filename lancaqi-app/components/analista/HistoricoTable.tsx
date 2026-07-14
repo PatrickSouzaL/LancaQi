@@ -5,7 +5,6 @@ import { Search, X } from "lucide-react";
 
 import {
   CabecalhoOrdenavel,
-  POR_CRIACAO_DESC,
   useDespesasOrdenadas,
 } from "@/components/admin/OrdenacaoDespesas";
 import { HistoricoAcoes } from "@/components/analista/HistoricoAcoes";
@@ -78,7 +77,8 @@ function StatusBadge({ status }: { status: StatusDespesa }) {
  * Filtros combináveis (texto sobre origem/destino, cliente, tipo, período) são
  * CLIENT-SIDE: o analista já recebe todo o histórico, então filtramos em
  * memória. Os cabeçalhos são ordenáveis (mesmo ciclo do Auditoria) e a ordem
- * neutra segue a CRIAÇÃO da despesa (`criado_em`), mais nova primeiro.
+ * neutra segue a DATA da despesa, mais nova primeiro (não a ordem de criação
+ * do banco).
  */
 export function HistoricoTable({
   despesas,
@@ -110,11 +110,8 @@ export function HistoricoTable({
     });
   }, [despesas, termo, cliente, tipo, periodo]);
 
-  // Ordenação client-side (headers clicáveis). Neutro: por criação (desc).
-  const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(
-    filtradas,
-    POR_CRIACAO_DESC,
-  );
+  // Ordenação client-side (headers clicáveis). Neutro: pela DATA (desc).
+  const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(filtradas);
 
   const temFiltro =
     termo.trim() !== "" ||
