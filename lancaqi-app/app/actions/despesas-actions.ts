@@ -15,6 +15,7 @@ import { calcularPrevia } from "@/lib/calculo";
 import {
   ehTipoValido,
   exigeCliente,
+  exigeDescricao,
   permiteCliente,
   usaKm,
   usaTrajetoCliente,
@@ -101,6 +102,8 @@ const exigeClienteObrigatorio = (d: DespesaCampos) =>
 const exigeValorDeclarado = (d: DespesaCampos) =>
   !usaValorDeclarado(d.tipo) ||
   (typeof d.valor_declarado === "number" && d.valor_declarado > 0);
+const exigeDescricaoPreenchida = (d: DespesaCampos) =>
+  !exigeDescricao(d.tipo) || Boolean(d.descricao && d.descricao.length > 0);
 
 const REFINE_KM = {
   path: ["quantidade_km"],
@@ -113,6 +116,10 @@ const REFINE_CLIENTE = {
 const REFINE_VALOR = {
   path: ["valor_declarado"],
   message: "Informe um valor maior que zero.",
+};
+const REFINE_DESCRICAO = {
+  path: ["descricao"],
+  message: "Descreva a despesa.",
 };
 
 // Regra exclusiva da CRIAÇÃO: a data não pode ter mais de 3 dias no passado.
@@ -135,6 +142,7 @@ const REFINE_DATA_RECENTE = {
 const CriarDespesaSchema = DespesaCamposSchema.refine(exigeKmValido, REFINE_KM)
   .refine(exigeClienteObrigatorio, REFINE_CLIENTE)
   .refine(exigeValorDeclarado, REFINE_VALOR)
+  .refine(exigeDescricaoPreenchida, REFINE_DESCRICAO)
   .refine(exigeCriacaoRecente, REFINE_DATA_RECENTE);
 
 const EditarDespesaSchema = DespesaCamposSchema.extend({
@@ -142,7 +150,8 @@ const EditarDespesaSchema = DespesaCamposSchema.extend({
 })
   .refine(exigeKmValido, REFINE_KM)
   .refine(exigeClienteObrigatorio, REFINE_CLIENTE)
-  .refine(exigeValorDeclarado, REFINE_VALOR);
+  .refine(exigeValorDeclarado, REFINE_VALOR)
+  .refine(exigeDescricaoPreenchida, REFINE_DESCRICAO);
 
 /** Linha de `configuracoes_taxas` (tipagem estrita da resposta do banco). */
 interface ConfiguracoesTaxasRow {

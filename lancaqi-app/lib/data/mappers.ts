@@ -75,5 +75,6 @@ export function mapDespesaFromDb(row: DespesaRow): Despesa {
     descricao: row.descricao,
     status: row.status,
     cliente_id: row.cliente_id,
+    criado_em: row.criado_em,
   };
 }

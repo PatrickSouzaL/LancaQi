@@ -40,6 +40,7 @@ import { calcularPrevia } from "@/lib/calculo";
 import {
   categoriaDe,
   exigeCliente,
+  exigeDescricao,
   OPCOES_CATEGORIA,
   OPCOES_POR_CATEGORIA,
   permiteCliente,
@@ -59,7 +60,7 @@ import type {
 import { cn } from "@/lib/utils";
 
 type Erros = Partial<
-  Record<"data" | "tipo" | "cliente" | "km" | "valor", string>
+  Record<"data" | "tipo" | "cliente" | "km" | "valor" | "descricao", string>
 >;
 
 // Origem/destino em texto vêm mapeados como "—" quando nulos (ver mappers).
@@ -149,6 +150,8 @@ export function FormularioDespesa({
   // Descrição é persistida (coluna `descricao`) e vale para TODOS os tipos —
   // inclusive deslocamentos. O antigo campo "Observação" não era gravado.
   const mostrarDescricao = temTipo;
+  // Nos tipos de DESPESA a descrição é OBRIGATÓRIA (detalhar o gasto).
+  const descricaoObrigatoria = temTipo && exigeDescricao(tipo);
 
   const opcoesTipo = categoria ? OPCOES_POR_CATEGORIA[categoria] : [];
 
@@ -198,6 +201,9 @@ export function FormularioDespesa({
       )
         e.valor = "Informe um valor maior que zero.";
     }
+    if (descricaoObrigatoria && descricao.trim() === "") {
+      e.descricao = "Descreva a despesa.";
+    }
     return e;
   }
 
@@ -234,6 +240,7 @@ export function FormularioDespesa({
     cliente_id: "cliente",
     quantidade_km: "km",
     valor_declarado: "valor",
+    descricao: "descricao",
   };
 
   function onSubmit(ev: React.FormEvent<HTMLFormElement>) {
@@ -505,7 +512,9 @@ export function FormularioDespesa({
           ou observações do deslocamento. */}
       {mostrarDescricao && (
         <div className="grid gap-2">
-          <Label htmlFor="descricao">Descrição (opcional)</Label>
+          <Label htmlFor="descricao">
+            Descrição{descricaoObrigatoria ? "" : " (opcional)"}
+          </Label>
           <Textarea
             id="descricao"
             value={descricao}
@@ -513,7 +522,11 @@ export function FormularioDespesa({
             placeholder="Detalhes adicionais (hotel, item comprado, motivo do almoço…)."
             rows={3}
             maxLength={1000}
+            aria-invalid={Boolean(erros.descricao)}
           />
+          {erros.descricao && (
+            <p className="text-sm text-destructive">{erros.descricao}</p>
+          )}
         </div>
       )}
 

@@ -24,7 +24,8 @@ export type TipoDespesa =
   | "LICENCA_SOFTWARE"
   | "EQUIPAMENTO"
   | "HOSPEDAGEM"
-  | "PASSAGEM";
+  | "PASSAGEM"
+  | "OUTROS";
 
 /**
  * Agrupamento de tipos apenas para o encadeamento visual dos selects e para as
@@ -68,6 +69,7 @@ export interface Despesa {
   descricao: string | null;
   status: StatusDespesa;
   cliente_id: string | null; // FK → clientes.id (null quando não há cliente)
+  criado_em: string; // timestamptz (ISO) — momento do registro no banco
 }
 
 /**

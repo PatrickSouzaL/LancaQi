@@ -50,6 +50,7 @@ const chartConfig = {
   EQUIPAMENTO: { label: "Equipamento", color: "#6366f1" },
   HOSPEDAGEM: { label: "Hospedagem", color: "#14b8a6" },
   PASSAGEM: { label: "Passagem", color: "#06b6d4" },
+  OUTROS: { label: "Outros", color: "#6b7280" },
 } satisfies ChartConfig;
 
 function rotuloDia(iso: string): string {

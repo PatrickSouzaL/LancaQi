@@ -23,6 +23,7 @@ const ESTILO_TIPO: Record<TipoDespesa, string> = {
   EQUIPAMENTO: "bg-indigo-100 text-indigo-700",
   HOSPEDAGEM: "bg-teal-100 text-teal-700",
   PASSAGEM: "bg-cyan-100 text-cyan-700",
+  OUTROS: "bg-gray-100 text-gray-700",
 };
 
 const ESTILO_STATUS: Record<StatusDespesa, string> = {

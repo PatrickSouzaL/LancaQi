@@ -28,6 +28,7 @@ export const TIPOS_DESPESA = [
   "EQUIPAMENTO",
   "HOSPEDAGEM",
   "PASSAGEM",
+  "OUTROS",
 ] as const;
 
 /** Todos os tipos válidos (constraint CHECK do banco espelha esta lista). */
@@ -117,6 +118,15 @@ export function usaDescricao(tipo: TipoDespesa): boolean {
   return categoriaDe(tipo) === "DESPESA";
 }
 
+/**
+ * Descrição OBRIGATÓRIA: tipos de DESPESA. Ao selecionar uma despesa o usuário
+ * precisa detalhá-la (especialmente "Outros", que não tem campo próprio). Nos
+ * deslocamentos a descrição continua opcional.
+ */
+export function exigeDescricao(tipo: TipoDespesa): boolean {
+  return categoriaDe(tipo) === "DESPESA";
+}
+
 // ---------------------------------------------------------------------------
 // Opções para os selects do formulário (rótulos amigáveis).
 // ---------------------------------------------------------------------------
@@ -143,6 +153,7 @@ export const OPCOES_DESPESA: OpcaoTipo[] = [
   { valor: "EQUIPAMENTO", label: "Equipamento" },
   { valor: "HOSPEDAGEM", label: "Hospedagem" },
   { valor: "PASSAGEM", label: "Passagem" },
+  { valor: "OUTROS", label: "Outros" },
 ];
 
 /** Opções por categoria (encadeamento do 1º → 2º select). */

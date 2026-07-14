@@ -24,7 +24,8 @@ VALUES (30.00, 0.50, 1.00);
 
 -- Tabela de Despesas (Transacional)
 -- `tipo` cobre deslocamentos (valor por KM/fixo) e despesas gerais (valor
--- declarado). Ver Migracao_003_Gestao_de_Despesas para a evolução do CHECK.
+-- declarado). Ver Migracao_003_Gestao_de_Despesas e Migracao_004_Tipo_Outros
+-- para a evolução do CHECK.
 CREATE TABLE public.despesas (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     usuario_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
@@ -34,7 +35,7 @@ CREATE TABLE public.despesas (
     tipo TEXT CHECK (tipo IN (
         'ESCRITORIO', 'MOTO', 'CARRO',
         'PEDAGIO', 'ESTACIONAMENTO', 'ALIMENTACAO_EXTERNA', 'ALMOCO_CLIENTE',
-        'LICENCA_SOFTWARE', 'EQUIPAMENTO', 'HOSPEDAGEM', 'PASSAGEM'
+        'LICENCA_SOFTWARE', 'EQUIPAMENTO', 'HOSPEDAGEM', 'PASSAGEM', 'OUTROS'
     )) NOT NULL,
     quantidade_km DECIMAL(10, 2),
     valor_calculado DECIMAL(10, 2) NOT NULL,

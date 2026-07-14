@@ -13,6 +13,7 @@ export type ChaveDespesa =
   | "usuario_nome"
   | "data"
   | "tipo"
+  | "origem"
   | "destino"
   | "quantidade_km"
   | "valor_calculado"
@@ -37,15 +38,28 @@ function comparar(a: Despesa, b: Despesa, chave: ChaveDespesa): number {
   }
 }
 
+/** Ordem neutra padrão: pela DATA da despesa, mais nova primeiro. */
+const POR_DATA_DESC = (a: Despesa, b: Despesa) => b.data.localeCompare(a.data);
+
+/**
+ * Ordem neutra pela DATA DE CRIAÇÃO (registro no banco), mais nova primeiro —
+ * `criado_em` é ISO/timestamptz, comparável lexicograficamente.
+ */
+export const POR_CRIACAO_DESC = (a: Despesa, b: Despesa) =>
+  b.criado_em.localeCompare(a.criado_em);
+
 /**
  * Ordenação client-side de despesas com ciclo de 3 estados por coluna:
  * neutro → crescente → decrescente → neutro.
  *
- * No estado neutro (padrão), lista pela DATA da despesa — mais nova primeiro —
- * sem depender da data de criação do banco. O sort é estável, então despesas do
- * mesmo dia preservam a ordem original recebida (desempate).
+ * No estado neutro (padrão), usa `ordemNeutra` — por padrão a DATA da despesa
+ * (mais nova primeiro). O sort é estável, então empates preservam a ordem
+ * original recebida.
  */
-export function useDespesasOrdenadas(despesas: Despesa[]) {
+export function useDespesasOrdenadas(
+  despesas: Despesa[],
+  ordemNeutra: (a: Despesa, b: Despesa) => number = POR_DATA_DESC,
+) {
   const [ordenacao, setOrdenacao] = useState<Ordenacao>({
     coluna: null,
     direcao: "asc",
@@ -62,12 +76,12 @@ export function useDespesasOrdenadas(despesas: Despesa[]) {
   const ordenadas = useMemo(() => {
     const base = [...despesas];
     if (ordenacao.coluna === null) {
-      return base.sort((a, b) => b.data.localeCompare(a.data));
+      return base.sort(ordemNeutra);
     }
     const fator = ordenacao.direcao === "asc" ? 1 : -1;
     const chave = ordenacao.coluna;
     return base.sort((a, b) => fator * comparar(a, b, chave));
-  }, [despesas, ordenacao]);
+  }, [despesas, ordenacao, ordemNeutra]);
 
   return { ordenadas, ordenacao, alternar };
 }
@@ -89,7 +103,7 @@ export function CabecalhoOrdenavel({
   ordenacao: Ordenacao;
   onOrdenar: (coluna: ChaveDespesa) => void;
   className?: string;
-  align?: "left" | "right";
+  align?: "left" | "right" | "center";
 }) {
   const ativo = ordenacao.coluna === chave;
   const Icone = ativo
@@ -99,7 +113,13 @@ export function CabecalhoOrdenavel({
     : ChevronsUpDown;
 
   return (
-    <TableHead className={cn(align === "right" && "text-right", className)}>
+    <TableHead
+      className={cn(
+        align === "right" && "text-right",
+        align === "center" && "text-center",
+        className,
+      )}
+    >
       <button
         type="button"
         onClick={() => onOrdenar(chave)}

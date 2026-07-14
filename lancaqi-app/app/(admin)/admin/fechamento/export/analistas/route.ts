@@ -88,6 +88,7 @@ export async function GET() {
       { header: "Destino", key: "destino", width: 24 },
       { header: "KM", key: "km", width: 10 },
       { header: "Valor (R$)", key: "valor", width: 16 },
+      { header: "Descrição", key: "descricao", width: 40 },
     ];
     sheet.getRow(1).font = { bold: true };
 
@@ -99,9 +100,11 @@ export async function GET() {
         destino: d.destino,
         km: d.quantidade_km,
         valor: d.valor_calculado,
+        descricao: d.descricao ?? "",
       });
       linha.getCell("km").numFmt = FMT_KM;
       linha.getCell("valor").numFmt = FMT_BRL;
+      linha.getCell("descricao").alignment = { wrapText: true };
     }
 
     // Linha de total — soma que confere com o Resumo.

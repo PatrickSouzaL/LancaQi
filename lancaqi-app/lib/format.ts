@@ -40,6 +40,7 @@ const LABEL_TIPO: Record<TipoDespesa, string> = {
   EQUIPAMENTO: "Equipamento",
   HOSPEDAGEM: "Hospedagem",
   PASSAGEM: "Passagem",
+  OUTROS: "Outros",
 };
 
 const LABEL_STATUS: Record<StatusDespesa, string> = {
