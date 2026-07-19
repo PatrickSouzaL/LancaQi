@@ -9,7 +9,11 @@ import {
 } from "@/lib/data/mappers";
 import { createClient } from "@/lib/supabase/server";
 import { quinzenaAtual, type Periodo } from "@/lib/periodo";
-import type { ConfiguracoesTaxas, Despesa } from "@/lib/types";
+import type {
+  ConfiguracoesTaxas,
+  Despesa,
+  GastoDiarioTotal,
+} from "@/lib/types";
 
 /**
  * Dados do próprio analista. O isolamento é garantido pela RLS
@@ -50,6 +54,35 @@ export async function getDespesasDoAnalista(
     return [];
   }
   return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
+}
+
+/**
+ * Total por dia do analista no período — uma entrada por dia COM lançamento
+ * (dias sem despesa simplesmente não aparecem). Ordenado por data crescente
+ * para o eixo X do gráfico. As somas rodam sobre o conjunto já restrito pela
+ * RLS + período.
+ */
+export async function getGastosDiariosAnalista(
+  periodo: Periodo,
+): Promise<GastoDiarioTotal[]> {
+  const despesas = await getDespesasDoAnalista(periodo);
+
+  const porDia = new Map<string, number>();
+  for (const d of despesas) {
+    porDia.set(d.data, (porDia.get(d.data) ?? 0) + d.valor_calculado);
+  }
+
+  return [...porDia.entries()]
+    .map(([data, total]) => ({ data, total }))
+    .sort((a, b) => a.data.localeCompare(b.data));
+}
+
+/** Total já reembolsado (status PAGO) do analista no período. */
+export async function getTotalPagoAnalista(periodo: Periodo): Promise<number> {
+  const despesas = await getDespesasDoAnalista(periodo);
+  return despesas
+    .filter((d) => d.status === "PAGO")
+    .reduce((soma, d) => soma + d.valor_calculado, 0);
 }
 
 export interface ResumoAnalista {

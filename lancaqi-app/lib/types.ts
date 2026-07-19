@@ -124,6 +124,15 @@ export interface GastoDiario {
   DESPESA: number;
 }
 
+/**
+ * Total consolidado de um dia (uma barra por dia). Usado no gráfico simples do
+ * dashboard do analista, que só lista os dias COM lançamento no período.
+ */
+export interface GastoDiarioTotal {
+  data: string; // ISO 8601: "2025-06-15"
+  total: number; // soma de `valor_calculado` no dia
+}
+
 /** Fatia da distribuição por tipo (donut do Dashboard). */
 export interface DistribuicaoTipo {
   tipo: TipoDespesa;

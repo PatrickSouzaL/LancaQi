@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, Clock, PlusCircle, Wallet } from "lucide-react";
+import { ArrowRight, PlusCircle, Receipt, Wallet } from "lucide-react";
 
 import { PageHeading } from "@/components/PageHeading";
+import { AnalistaGastosChart } from "@/components/dashboard/AnalistaGastosChart";
+import { AnalistaPagoCard } from "@/components/dashboard/AnalistaPagoCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,9 +20,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getResumoAnalista, getDespesasDoAnalista } from "@/lib/data/analista";
+import {
+  getDespesasDoAnalista,
+  getGastosDiariosAnalista,
+  getResumoAnalista,
+  getTotalPagoAnalista,
+} from "@/lib/data/analista";
 import { getUsuarioPerfil } from "@/lib/data/auth";
 import { formatarBRL, formatarData, labelStatus, labelTipo } from "@/lib/format";
+import {
+  mesAnterior,
+  quinzenaAnterior,
+  quinzenaAtual,
+  ultimosDias,
+} from "@/lib/periodo";
 import type { StatusDespesa } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -44,11 +57,23 @@ function StatusBadge({ status }: { status: StatusDespesa }) {
 }
 
 export default async function AnalistaDashboardPage() {
-  const [perfil, resumo, despesas] = await Promise.all([
-    getUsuarioPerfil(),
-    getResumoAnalista(),
-    getDespesasDoAnalista(),
-  ]);
+  // Recortes de período: gráfico (7 dias móveis vs. quinzena anterior fechada)
+  // e bloco de reembolso (quinzena anterior vs. mês-calendário anterior).
+  const janela7 = ultimosDias(7);
+  const quinzenaAnt = quinzenaAnterior();
+  const mesAnt = mesAnterior();
+  const quinzenaCorrente = quinzenaAtual();
+
+  const [perfil, resumo, despesas, gastos7, gastosQuinzena, pagoQuinzena, pagoMes] =
+    await Promise.all([
+      getUsuarioPerfil(),
+      getResumoAnalista(),
+      getDespesasDoAnalista(),
+      getGastosDiariosAnalista(janela7),
+      getGastosDiariosAnalista(quinzenaAnt),
+      getTotalPagoAnalista(quinzenaAnt),
+      getTotalPagoAnalista(mesAnt),
+    ]);
   const vazio = resumo.quantidade === 0;
   const primeiroNome = perfil.nome.split(/\s+/)[0];
   const ultimasDespesas = despesas.slice(0, 5);
@@ -79,8 +104,11 @@ export default async function AnalistaDashboardPage() {
             {formatarBRL(resumo.totalQuinzena)}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {vazio ? (
+        {/* Card focado apenas no valor total. A contagem de lançamentos foi
+            movida para o mini-card da coluna direita. O CTA de "primeiro
+            lançamento" só aparece quando o ciclo está vazio. */}
+        {vazio && (
+          <CardContent>
             <p className="text-sm text-muted-foreground">
               Você ainda não tem lançamentos neste ciclo.{" "}
               <Link
@@ -91,37 +119,49 @@ export default async function AnalistaDashboardPage() {
               </Link>
               .
             </p>
-          ) : (
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {resumo.quantidade} lançamentos no período.
-            </p>
-          )}
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardDescription className="flex items-center gap-2">
-              <Clock className="size-4 text-amber-600" />
-              A receber (pendente)
-            </CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums">
-              {formatarBRL(resumo.totalPendente)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardDescription className="flex items-center gap-2">
-              <Wallet className="size-4 text-emerald-600" />
-              Já reembolsado (pago)
-            </CardDescription>
-            <CardTitle className="text-2xl font-bold tabular-nums">
-              {formatarBRL(resumo.totalPago)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
+      {/* Seção principal: gráfico ocupa ~66% (2/3) e é o elemento dominante; a
+          coluna direita (1/3) é um stack vertical. O grid estica as colunas à
+          mesma altura (definida pelo gráfico). Na direita, o card de reembolso
+          é fit-content no topo e o mini-card cresce (`flex-1`) até encostar a
+          base exatamente na base do gráfico — sem ultrapassar. Empilha no
+          mobile. */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <AnalistaGastosChart
+            seteDias={gastos7}
+            quinzena={gastosQuinzena}
+            rotuloQuinzena={quinzenaAnt.rotulo}
+          />
+        </div>
+
+        <div className="flex h-full flex-col gap-4 lg:col-span-2">
+          {/* Já reembolsado — altura só do conteúdo (fit-content), no topo. */}
+          <AnalistaPagoCard
+            quinzena={{ total: pagoQuinzena, rotulo: quinzenaAnt.rotulo }}
+            mes={{ total: pagoMes, rotulo: mesAnt.rotulo }}
+          />
+
+          {/* Mini-card: total de lançamentos da quinzena atual. `flex-1` +
+              `min-h-0` faz a base ancorar na base do gráfico à esquerda. */}
+          <Card className="flex min-h-0 flex-1 flex-col justify-center shadow-sm">
+            <CardHeader>
+              <CardDescription className="flex items-center gap-2">
+                <Receipt className="size-4 text-primary" />
+                Lançamentos no período
+              </CardDescription>
+              <CardTitle className="text-3xl font-bold tabular-nums">
+                {resumo.quantidade}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                quinzena atual · {quinzenaCorrente.rotulo}
+              </p>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
 
       <div className="space-y-4">

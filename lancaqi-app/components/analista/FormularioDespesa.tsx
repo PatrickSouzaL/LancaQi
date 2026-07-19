@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,6 +37,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { calcularPrevia } from "@/lib/calculo";
 import {
   categoriaDe,
@@ -131,6 +142,8 @@ export function FormularioDespesa({
 
   const [erros, setErros] = useState<Erros>({});
   const [enviando, startTransition] = useTransition();
+  const [mostrarModalContinuar, setMostrarModalContinuar] = useState(false);
+  const router = useRouter();
 
   // Janela de datas permitida. Na CRIAÇÃO, limita a no máximo 3 dias no passado;
   // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
@@ -284,7 +297,7 @@ export function FormularioDespesa({
           onSucesso?.();
         } else {
           toast.success("Lançamento registrado com sucesso.");
-          limpar();
+          setMostrarModalContinuar(true);
         }
         return;
       }
@@ -303,7 +316,8 @@ export function FormularioDespesa({
   const clientePermitido = temTipo && permiteCliente(tipo);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <>
+      <form onSubmit={onSubmit} className="space-y-6">
       <div className="grid gap-2">
         <Label htmlFor="data">Data</Label>
         <Popover open={popoverAberto} onOpenChange={setPopoverAberto}>
@@ -566,5 +580,41 @@ export function FormularioDespesa({
         )}
       </Button>
     </form>
+
+    <AlertDialog open={mostrarModalContinuar} onOpenChange={setMostrarModalContinuar}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Adicionar outra despesa?</AlertDialogTitle>
+          <AlertDialogDescription>
+            A despesa foi registrada com sucesso. Deseja adicionar mais uma despesa ou voltar para o início?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel
+            onClick={(e) => {
+              e.preventDefault();
+              setMostrarModalContinuar(false);
+              if (onSucesso) {
+                onSucesso();
+              } else {
+                router.push(comoAdmin ? "/admin/dashboard" : "/analista/dashboard");
+              }
+            }}
+          >
+            Não, voltar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              setMostrarModalContinuar(false);
+              limpar();
+            }}
+          >
+            Sim, adicionar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

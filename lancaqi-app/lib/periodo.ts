@@ -60,6 +60,39 @@ export function quinzenaAtual(): Periodo {
   return quinzenaDe(hojeISO());
 }
 
+/**
+ * Janela móvel dos últimos `n` dias, INCLUINDO hoje (ex.: `n=7` → hoje e os 6
+ * dias anteriores). Não é uma quinzena contábil; serve para recortes rolantes
+ * como o gráfico do dashboard do analista. A aritmética roda em UTC sobre a
+ * data-calendário, sem fuso (a referência já vem resolvida em São Paulo).
+ */
+export function ultimosDias(n: number, ref: string = hojeISO()): Periodo {
+  const [ano, mes, dia] = ref.split("-").map(Number);
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  d.setUTCDate(d.getUTCDate() - (n - 1));
+  return {
+    inicio: fmt(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()),
+    fim: ref,
+    rotulo: `últimos ${n} dias`,
+  };
+}
+
+/** Mês-calendário anterior ao de referência (padrão: o mês passado). */
+export function mesAnterior(ref: string = hojeISO()): Periodo {
+  const [ano, mes] = ref.split("-").map(Number);
+  let pAno = ano;
+  let pMes = mes - 1;
+  if (pMes === 0) {
+    pMes = 12;
+    pAno = ano - 1;
+  }
+  return {
+    inicio: fmt(pAno, pMes, 1),
+    fim: fmt(pAno, pMes, ultimoDiaDoMes(pAno, pMes)),
+    rotulo: `${MESES[pMes - 1]} ${pAno}`,
+  };
+}
+
 /** Quinzena imediatamente anterior à informada (padrão: a anterior à atual). */
 export function quinzenaAnterior(ref: Periodo = quinzenaAtual()): Periodo {
   const [ano, mes, dia] = ref.inicio.split("-").map(Number);
