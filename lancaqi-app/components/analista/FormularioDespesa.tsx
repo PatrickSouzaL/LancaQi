@@ -187,7 +187,7 @@ export function FormularioDespesa({
         } else if (isBefore(target, limiteInferior)) {
           e.data = editando
             ? "A data não pode ter mais de 1 ano para trás."
-            : "A data não pode ter mais de 3 dias no passado.";
+            : "A data não pode ter mais de 4 dias no passado.";
         }
       } catch {
         e.data = "Data inválida.";
