@@ -10,7 +10,7 @@ import {
   CabecalhoOrdenavel,
   useDespesasOrdenadas,
 } from "@/components/admin/OrdenacaoDespesas";
-import { TipoBadge } from "@/components/admin/StatusBadges";
+import { StatusBadge, TipoBadge } from "@/components/admin/StatusBadges";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,8 +38,17 @@ import type { Despesa } from "@/lib/types";
  * de UI. No alvo, a marcação roda numa Server Action que valida `is_admin()` e
  * processa os uuids server-side — a lista de IDs do cliente nunca é autoritativa
  * (a RLS é a barreira final).
+ *
+ * Em `somenteLeitura` (consulta da quinzena anterior) as despesas vêm com status
+ * misto (PAGO + PENDENTE): oculta seleção/pagamento/export e exibe o status.
  */
-export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
+export function FechamentoClient({
+  pendentes,
+  somenteLeitura = false,
+}: {
+  pendentes: Despesa[];
+  somenteLeitura?: boolean;
+}) {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [processando, startTransition] = useTransition();
 
@@ -52,6 +61,12 @@ export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
         .filter((d) => selecionados.has(d.id))
         .reduce((soma, d) => soma + d.valor_calculado, 0),
     [pendentes, selecionados],
+  );
+
+  // Total de todo o período (modo consulta, onde não há seleção).
+  const totalPeriodo = useMemo(
+    () => pendentes.reduce((soma, d) => soma + d.valor_calculado, 0),
+    [pendentes],
   );
 
   const todosMarcados =
@@ -99,50 +114,69 @@ export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
     <Card className="shadow-sm">
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="space-y-1.5">
-          <CardTitle>Despesas Pendentes</CardTitle>
+          <CardTitle>
+            {somenteLeitura ? "Despesas do Período" : "Despesas Pendentes"}
+          </CardTitle>
           <CardDescription>
-            {pendentes.length} pendentes • {selecionados.size} selecionadas (
-            {formatarBRL(totalSelecionado)})
-          </CardDescription>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            {/* Download server-side (GET autenticado): todas as pendentes. */}
-            <a href="/admin/fechamento/export" download>
-              Exportar CSV
-            </a>
-          </Button>
-          <Button
-            disabled={selecionados.size === 0 || processando}
-            onClick={pagarSelecionados}
-          >
-            {processando ? (
+            {somenteLeitura ? (
               <>
-                <Loader2 className="size-4 animate-spin" />
-                Processando...
+                {pendentes.length} lançamentos •{" "}
+                {formatarBRL(totalPeriodo)} no período
               </>
             ) : (
-              "Marcar como Pagos"
+              <>
+                {pendentes.length} pendentes • {selecionados.size} selecionadas (
+                {formatarBRL(totalSelecionado)})
+              </>
             )}
-          </Button>
+          </CardDescription>
         </div>
+        {!somenteLeitura && (
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              {/* Download server-side (GET autenticado): todas as pendentes. */}
+              <a href="/admin/fechamento/export" download>
+                Exportar CSV
+              </a>
+            </Button>
+            <Button
+              disabled={selecionados.size === 0 || processando}
+              onClick={pagarSelecionados}
+            >
+              {processando ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Marcar como Pagos"
+              )}
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {pendentes.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma despesa pendente.
+            {somenteLeitura
+              ? "Nenhuma despesa no período."
+              : "Nenhuma despesa pendente."}
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={headerState}
-                    onCheckedChange={alternarTodos}
-                    aria-label="Selecionar todos"
-                  />
-                </TableHead>
+                {somenteLeitura ? (
+                  <TableHead>Status</TableHead>
+                ) : (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={headerState}
+                      onCheckedChange={alternarTodos}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
+                )}
                 <CabecalhoOrdenavel
                   chave="usuario_nome"
                   ordenacao={ordenacao}
@@ -186,14 +220,25 @@ export function FechamentoClient({ pendentes }: { pendentes: Despesa[] }) {
               {ordenadas.map((d) => {
                 const marcado = selecionados.has(d.id);
                 return (
-                  <TableRow key={d.id} data-state={marcado ? "selected" : undefined}>
-                    <TableCell>
-                      <Checkbox
-                        checked={marcado}
-                        onCheckedChange={(v) => alternarUm(d.id, v)}
-                        aria-label={`Selecionar despesa de ${d.usuario_nome}`}
-                      />
-                    </TableCell>
+                  <TableRow
+                    key={d.id}
+                    data-state={
+                      !somenteLeitura && marcado ? "selected" : undefined
+                    }
+                  >
+                    {somenteLeitura ? (
+                      <TableCell>
+                        <StatusBadge status={d.status} />
+                      </TableCell>
+                    ) : (
+                      <TableCell>
+                        <Checkbox
+                          checked={marcado}
+                          onCheckedChange={(v) => alternarUm(d.id, v)}
+                          aria-label={`Selecionar despesa de ${d.usuario_nome}`}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <AnalistaCell nome={d.usuario_nome} />
                     </TableCell>

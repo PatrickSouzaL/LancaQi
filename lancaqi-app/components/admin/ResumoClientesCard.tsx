@@ -34,9 +34,12 @@ import type { ResumoFechamentoCliente } from "@/lib/types";
 export function ResumoClientesCard({
   resumoClientes,
   periodoRotulo,
+  somenteLeitura = false,
 }: {
   resumoClientes: ResumoFechamentoCliente[];
   periodoRotulo: string;
+  /** Modo consulta (quinzena anterior): oculta o export, que só cobre a atual. */
+  somenteLeitura?: boolean;
 }) {
   const [ocultarInternos, setOcultarInternos] = useState(true);
   const checkboxId = useId();
@@ -82,7 +85,7 @@ export function ResumoClientesCard({
             </Label>
           </div>
         )}
-        {visiveis.length > 0 && (
+        {visiveis.length > 0 && !somenteLeitura && (
           <CardAction>
             <Button variant="outline" asChild>
               {/* Download server-side (GET autenticado): resumo por cliente.

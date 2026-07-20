@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CalendarClock } from "lucide-react";
 
 import { PageHeading } from "@/components/PageHeading";
@@ -21,21 +22,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
 import {
   getResumoFechamento,
   getResumoFechamentoPorCliente,
 } from "@/lib/data/dashboard";
 import { formatarBRL, formatarKm } from "@/lib/format";
-import { quinzenaAtual } from "@/lib/periodo";
+import { quinzenaAnterior, quinzenaAtual } from "@/lib/periodo";
+import { cn } from "@/lib/utils";
 
-export default async function FechamentoPage() {
-  // Fechamento da quinzena vigente: PENDENTE + intervalo de datas da quinzena.
-  const periodo = quinzenaAtual();
+export default async function FechamentoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string }>;
+}) {
+  const { periodo: paramPeriodo } = await searchParams;
+
+  // Modo consulta: `?periodo=anterior` troca a página inteira para a quinzena
+  // passada, exibindo TODAS as despesas (PAGO + PENDENTE) — sem ações de
+  // pagamento nem export (que sempre cobrem a quinzena vigente).
+  const consulta = paramPeriodo === "anterior";
+  const periodo = consulta ? quinzenaAnterior() : quinzenaAtual();
+
+  // Na quinzena vigente, a fila é só PENDENTE (pagamento em lote). No modo
+  // consulta, trazemos tudo do período para conferência.
   const [pendentes, resumo, resumoClientes] = await Promise.all([
-    getDespesasPendentes(periodo),
-    getResumoFechamento(periodo),
-    getResumoFechamentoPorCliente(periodo),
+    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
+    getResumoFechamento(periodo, { todosStatus: consulta }),
+    getResumoFechamentoPorCliente(periodo, { todosStatus: consulta }),
   ]);
 
   const totalPeriodo = resumo.reduce((soma, r) => soma + r.totalPendente, 0);
@@ -46,11 +60,34 @@ export default async function FechamentoPage() {
         titulo="Fechamento Quinzenal"
         descricao="Consolide e pague em lote as despesas pendentes do período."
         acao={
-          // Legenda do período — orienta quem realiza o pagamento.
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            <CalendarClock className="size-3.5" />
-            Quinzena de {periodo.rotulo}
-          </span>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            {/* Legenda do período — orienta quem realiza o pagamento. */}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+              <CalendarClock className="size-3.5" />
+              Quinzena de {periodo.rotulo}
+            </span>
+            {/* Alterna entre a quinzena vigente e a anterior (consulta rápida). */}
+            <div className="inline-flex rounded-lg border border-border p-0.5">
+              <Button
+                asChild
+                size="sm"
+                variant={consulta ? "ghost" : "secondary"}
+                className={cn("h-8", !consulta && "shadow-sm")}
+              >
+                <Link href="/admin/fechamento">Quinzena atual</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                variant={consulta ? "secondary" : "ghost"}
+                className={cn("h-8", consulta && "shadow-sm")}
+              >
+                <Link href="/admin/fechamento?periodo=anterior">
+                  Quinzena anterior
+                </Link>
+              </Button>
+            </div>
+          </div>
         }
       />
 
@@ -58,10 +95,10 @@ export default async function FechamentoPage() {
         <CardHeader>
           <CardTitle>Resumo por Analista</CardTitle>
           <CardDescription>
-            Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)} pendentes
-            de pagamento
+            Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)}{" "}
+            {consulta ? "no período" : "pendentes de pagamento"}
           </CardDescription>
-          {resumo.length > 0 && (
+          {resumo.length > 0 && !consulta && (
             <CardAction>
               <Button variant="outline" asChild>
                 {/* Download server-side (GET autenticado): resumo por analista.
@@ -76,7 +113,9 @@ export default async function FechamentoPage() {
         <CardContent>
           {resumo.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Nenhuma despesa pendente no período.
+              {consulta
+                ? "Nenhuma despesa no período."
+                : "Nenhuma despesa pendente no período."}
             </p>
           ) : (
             <Table>
@@ -114,9 +153,10 @@ export default async function FechamentoPage() {
       <ResumoClientesCard
         resumoClientes={resumoClientes}
         periodoRotulo={periodo.rotulo}
+        somenteLeitura={consulta}
       />
 
-      <FechamentoClient pendentes={pendentes} />
+      <FechamentoClient pendentes={pendentes} somenteLeitura={consulta} />
     </>
   );
 }

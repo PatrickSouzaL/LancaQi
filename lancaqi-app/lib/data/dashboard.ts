@@ -117,13 +117,21 @@ export async function getDistribuicaoPorTipo(
   })).filter((d) => d.valor > 0);
 }
 
+/**
+ * Resumo por analista do período. Por padrão considera apenas PENDENTE (fila de
+ * pagamento). Com `todosStatus`, agrega PAGO + PENDENTE — usado no modo consulta
+ * da quinzena anterior, onde o interesse é conferir o histórico, não pagar.
+ */
 export async function getResumoFechamento(
   periodo?: Periodo,
+  opts: { todosStatus?: boolean } = {},
 ): Promise<ResumoFechamentoUsuario[]> {
-  const pendentes = await getDespesasPendentes(periodo);
+  const despesas = opts.todosStatus
+    ? await getDespesas(periodo)
+    : await getDespesasPendentes(periodo);
 
   const porUsuario = new Map<string, ResumoFechamentoUsuario>();
-  for (const d of pendentes) {
+  for (const d of despesas) {
     const atual = porUsuario.get(d.usuario_id) ?? {
       usuario_id: d.usuario_id,
       usuario_nome: d.usuario_nome,
@@ -155,16 +163,17 @@ export { SEM_CLIENTE_ID, isClienteInterno };
  */
 export async function getResumoFechamentoPorCliente(
   periodo?: Periodo,
+  opts: { todosStatus?: boolean } = {},
 ): Promise<ResumoFechamentoCliente[]> {
-  const [pendentes, clientes] = await Promise.all([
-    getDespesasPendentes(periodo),
+  const [despesas, clientes] = await Promise.all([
+    opts.todosStatus ? getDespesas(periodo) : getDespesasPendentes(periodo),
     getClientes(),
   ]);
 
   const nomePorId = new Map(clientes.map((c) => [c.id, c.nome]));
 
   const porCliente = new Map<string, ResumoFechamentoCliente>();
-  for (const d of pendentes) {
+  for (const d of despesas) {
     const chave = d.cliente_id ?? SEM_CLIENTE_ID;
     const cliente_nome = d.cliente_id
       ? (nomePorId.get(d.cliente_id) ?? "Cliente removido")
