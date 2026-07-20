@@ -145,7 +145,7 @@ export function FormularioDespesa({
   const [mostrarModalContinuar, setMostrarModalContinuar] = useState(false);
   const router = useRouter();
 
-  // Janela de datas permitida. Na CRIAÇÃO, limita a no máximo 3 dias no passado;
+  // Janela de datas permitida. Na CRIAÇÃO, limita a no máximo 4 dias no passado;
   // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
   const hoje = startOfDay(new Date());
   const limiteInferior = startOfDay(
