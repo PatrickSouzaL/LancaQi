@@ -149,7 +149,7 @@ export function FormularioDespesa({
   // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
   const hoje = startOfDay(new Date());
   const limiteInferior = startOfDay(
-    editando ? subYears(new Date(), 1) : subDays(new Date(), 3),
+    editando ? subYears(new Date(), 1) : subDays(new Date(), 4),
   );
 
   // Visibilidade dos campos finais conforme o tipo escolhido.
@@ -318,303 +318,303 @@ export function FormularioDespesa({
   return (
     <>
       <form onSubmit={onSubmit} className="space-y-6">
-      <div className="grid gap-2">
-        <Label htmlFor="data">Data</Label>
-        <Popover open={popoverAberto} onOpenChange={setPopoverAberto}>
-          <PopoverTrigger asChild>
-            <Button
-              id="data"
-              variant="outline"
-              type="button"
-              className={cn(
-                "h-11 w-full justify-start text-left font-normal border-input bg-transparent px-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                !data && "text-muted-foreground",
-                erros.data && "border-destructive focus-visible:ring-destructive/20"
-              )}
-              aria-invalid={Boolean(erros.data)}
-            >
-              <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
-              {data ? (
-                format(parseISO(data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-              ) : (
-                <span>Selecione a data</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={data ? parseISO(data) : undefined}
-              onSelect={(date) => {
-                if (date) {
-                  setData(format(date, "yyyy-MM-dd"));
-                  setPopoverAberto(false);
-                }
-              }}
-              disabled={(date) => {
-                const target = startOfDay(date);
-                return isAfter(target, hoje) || isBefore(target, limiteInferior);
-              }}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-        {erros.data && <p className="text-sm text-destructive">{erros.data}</p>}
-      </div>
-
-      {/* 1º select: Categoria (apenas controle visual do fluxo). */}
-      <div className="grid gap-2">
-        <Label htmlFor="categoria">Categoria</Label>
-        <Select value={categoria} onValueChange={onCategoriaChange}>
-          <SelectTrigger id="categoria" className="!h-11">
-            <SelectValue placeholder="Selecione a categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            {OPCOES_CATEGORIA.map((o) => (
-              <SelectItem key={o.valor} value={o.valor}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* 2º select: Tipo — só aparece após escolher a categoria. */}
-      {categoria !== "" && (
         <div className="grid gap-2">
-          <Label htmlFor="tipo">Tipo</Label>
-          <Select
-            value={tipo}
-            onValueChange={(v) => setTipo(v as TipoDespesa)}
-          >
-            <SelectTrigger
-              id="tipo"
-              className="!h-11"
-              aria-invalid={Boolean(erros.tipo)}
-            >
-              <SelectValue placeholder="Selecione o tipo" />
+          <Label htmlFor="data">Data</Label>
+          <Popover open={popoverAberto} onOpenChange={setPopoverAberto}>
+            <PopoverTrigger asChild>
+              <Button
+                id="data"
+                variant="outline"
+                type="button"
+                className={cn(
+                  "h-11 w-full justify-start text-left font-normal border-input bg-transparent px-3 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                  !data && "text-muted-foreground",
+                  erros.data && "border-destructive focus-visible:ring-destructive/20"
+                )}
+                aria-invalid={Boolean(erros.data)}
+              >
+                <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
+                {data ? (
+                  format(parseISO(data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                ) : (
+                  <span>Selecione a data</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={data ? parseISO(data) : undefined}
+                onSelect={(date) => {
+                  if (date) {
+                    setData(format(date, "yyyy-MM-dd"));
+                    setPopoverAberto(false);
+                  }
+                }}
+                disabled={(date) => {
+                  const target = startOfDay(date);
+                  return isAfter(target, hoje) || isBefore(target, limiteInferior);
+                }}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          {erros.data && <p className="text-sm text-destructive">{erros.data}</p>}
+        </div>
+
+        {/* 1º select: Categoria (apenas controle visual do fluxo). */}
+        <div className="grid gap-2">
+          <Label htmlFor="categoria">Categoria</Label>
+          <Select value={categoria} onValueChange={onCategoriaChange}>
+            <SelectTrigger id="categoria" className="!h-11">
+              <SelectValue placeholder="Selecione a categoria" />
             </SelectTrigger>
             <SelectContent>
-              {opcoesTipo.map((o) => (
+              {OPCOES_CATEGORIA.map((o) => (
                 <SelectItem key={o.valor} value={o.valor}>
                   {o.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {erros.tipo && <p className="text-sm text-destructive">{erros.tipo}</p>}
         </div>
-      )}
 
-      {/* Trajeto por CLIENTE (Moto/Carro): origem e destino são clientes. */}
-      {mostrarTrajetoCliente && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* 2º select: Tipo — só aparece após escolher a categoria. */}
+        {categoria !== "" && (
           <div className="grid gap-2">
-            <Label htmlFor="origem">Origem</Label>
-            <ClienteCombobox
-              id="origem"
-              clientes={clientes}
-              value={origemId}
-              onChange={setOrigemId}
-              placeholder="Selecione a origem"
-            />
+            <Label htmlFor="tipo">Tipo</Label>
+            <Select
+              value={tipo}
+              onValueChange={(v) => setTipo(v as TipoDespesa)}
+            >
+              <SelectTrigger
+                id="tipo"
+                className="!h-11"
+                aria-invalid={Boolean(erros.tipo)}
+              >
+                <SelectValue placeholder="Selecione o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {opcoesTipo.map((o) => (
+                  <SelectItem key={o.valor} value={o.valor}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {erros.tipo && <p className="text-sm text-destructive">{erros.tipo}</p>}
           </div>
+        )}
+
+        {/* Trajeto por CLIENTE (Moto/Carro): origem e destino são clientes. */}
+        {mostrarTrajetoCliente && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="origem">Origem</Label>
+              <ClienteCombobox
+                id="origem"
+                clientes={clientes}
+                value={origemId}
+                onChange={setOrigemId}
+                placeholder="Selecione a origem"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="cliente">Cliente (destino)</Label>
+              <ClienteCombobox
+                id="cliente"
+                clientes={clientes}
+                value={clienteId}
+                onChange={setClienteId}
+                placeholder="Selecione o cliente"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Trajeto por TEXTO (pedágio/estacionamento/passagem). */}
+        {mostrarTrajetoTexto && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="origem-texto">Origem (opcional)</Label>
+              <Input
+                id="origem-texto"
+                value={origemTexto}
+                onChange={(e) => setOrigemTexto(e.target.value)}
+                placeholder="Ex.: São Paulo"
+                className="h-11"
+                maxLength={200}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="destino-texto">Destino (opcional)</Label>
+              <Input
+                id="destino-texto"
+                value={destinoTexto}
+                onChange={(e) => setDestinoTexto(e.target.value)}
+                placeholder="Ex.: Campinas"
+                className="h-11"
+                maxLength={200}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Quilometragem (Moto/Carro). */}
+        {mostrarKm && (
           <div className="grid gap-2">
-            <Label htmlFor="cliente">Cliente (destino)</Label>
+            <Label htmlFor="km">Quilometragem (KM)</Label>
+            <Input
+              id="km"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.1"
+              value={km}
+              onChange={(e) => setKm(e.target.value)}
+              placeholder="0,0"
+              className="h-11 tabular-nums"
+              aria-invalid={Boolean(erros.km)}
+            />
+            {erros.km && <p className="text-sm text-destructive">{erros.km}</p>}
+          </div>
+        )}
+
+        {/* Cliente avulso (tipos de despesa que aceitam cliente). */}
+        {mostrarClienteAvulso && (
+          <div className="grid gap-2">
+            <Label htmlFor="cliente-avulso">
+              Cliente{clienteObrigatorio ? "" : " (opcional)"}
+            </Label>
             <ClienteCombobox
-              id="cliente"
+              id="cliente-avulso"
               clientes={clientes}
               value={clienteId}
               onChange={setClienteId}
               placeholder="Selecione o cliente"
+              invalid={Boolean(erros.cliente)}
             />
+            {erros.cliente && (
+              <p className="text-sm text-destructive">{erros.cliente}</p>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Trajeto por TEXTO (pedágio/estacionamento/passagem). */}
-      {mostrarTrajetoTexto && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="origem-texto">Origem (opcional)</Label>
-            <Input
-              id="origem-texto"
-              value={origemTexto}
-              onChange={(e) => setOrigemTexto(e.target.value)}
-              placeholder="Ex.: São Paulo"
-              className="h-11"
-              maxLength={200}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="destino-texto">Destino (opcional)</Label>
-            <Input
-              id="destino-texto"
-              value={destinoTexto}
-              onChange={(e) => setDestinoTexto(e.target.value)}
-              placeholder="Ex.: Campinas"
-              className="h-11"
-              maxLength={200}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Quilometragem (Moto/Carro). */}
-      {mostrarKm && (
-        <div className="grid gap-2">
-          <Label htmlFor="km">Quilometragem (KM)</Label>
-          <Input
-            id="km"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.1"
-            value={km}
-            onChange={(e) => setKm(e.target.value)}
-            placeholder="0,0"
-            className="h-11 tabular-nums"
-            aria-invalid={Boolean(erros.km)}
-          />
-          {erros.km && <p className="text-sm text-destructive">{erros.km}</p>}
-        </div>
-      )}
-
-      {/* Cliente avulso (tipos de despesa que aceitam cliente). */}
-      {mostrarClienteAvulso && (
-        <div className="grid gap-2">
-          <Label htmlFor="cliente-avulso">
-            Cliente{clienteObrigatorio ? "" : " (opcional)"}
-          </Label>
-          <ClienteCombobox
-            id="cliente-avulso"
-            clientes={clientes}
-            value={clienteId}
-            onChange={setClienteId}
-            placeholder="Selecione o cliente"
-            invalid={Boolean(erros.cliente)}
-          />
-          {erros.cliente && (
-            <p className="text-sm text-destructive">{erros.cliente}</p>
-          )}
-        </div>
-      )}
-
-      {/* Valor declarado (tipos de despesa). */}
-      {mostrarValor && (
-        <div className="grid gap-2">
-          <Label htmlFor="valor">Valor (R$)</Label>
-          <Input
-            id="valor"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            value={valorDeclarado}
-            onChange={(e) => setValorDeclarado(e.target.value)}
-            placeholder="0,00"
-            className="h-11 tabular-nums"
-            aria-invalid={Boolean(erros.valor)}
-          />
-          {erros.valor && (
-            <p className="text-sm text-destructive">{erros.valor}</p>
-          )}
-        </div>
-      )}
-
-      {/* Descrição (persistida, todos os tipos): detalha hotel, item, motivo,
-          ou observações do deslocamento. */}
-      {mostrarDescricao && (
-        <div className="grid gap-2">
-          <Label htmlFor="descricao">
-            Descrição{descricaoObrigatoria ? "" : " (opcional)"}
-          </Label>
-          <Textarea
-            id="descricao"
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            placeholder="Detalhes adicionais (hotel, item comprado, motivo do almoço…)."
-            rows={3}
-            maxLength={1000}
-            aria-invalid={Boolean(erros.descricao)}
-          />
-          {erros.descricao && (
-            <p className="text-sm text-destructive">{erros.descricao}</p>
-          )}
-        </div>
-      )}
-
-      {/* Prévia do reembolso em destaque, recalculada em tempo real. */}
-      {previa !== null && (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-accent px-5 py-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-accent-foreground">
-            <Sparkles className="size-4" />
-            {clientePermitido || mostrarValor || mostrarKm
-              ? "Prévia do reembolso"
-              : "Valor do reembolso"}
-          </div>
-          <span
-            aria-live="polite"
-            className="text-2xl font-extrabold tracking-tight tabular-nums text-primary"
-          >
-            {formatarBRL(previa)}
-          </span>
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        Valor estimado. O cálculo final é refeito pelo sistema no
-        processamento — sem necessidade de anexar comprovantes.
-      </p>
-
-      <Button type="submit" className="h-11 w-full sm:w-auto" disabled={enviando}>
-        {enviando ? (
-          <>
-            <Loader2 className="size-4 animate-spin" />
-            {editando ? "Salvando..." : "Registrando..."}
-          </>
-        ) : editando ? (
-          "Salvar Alterações"
-        ) : (
-          "Registrar Lançamento"
         )}
-      </Button>
-    </form>
 
-    <AlertDialog open={mostrarModalContinuar} onOpenChange={setMostrarModalContinuar}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Adicionar outra despesa?</AlertDialogTitle>
-          <AlertDialogDescription>
-            A despesa foi registrada com sucesso. Deseja adicionar mais uma despesa ou voltar para o início?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            onClick={(e) => {
-              e.preventDefault();
-              setMostrarModalContinuar(false);
-              if (onSucesso) {
-                onSucesso();
-              } else {
-                router.push(comoAdmin ? "/admin/dashboard" : "/analista/dashboard");
-              }
-            }}
-          >
-            Não, voltar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault();
-              setMostrarModalContinuar(false);
-              limpar();
-            }}
-          >
-            Sim, adicionar
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        {/* Valor declarado (tipos de despesa). */}
+        {mostrarValor && (
+          <div className="grid gap-2">
+            <Label htmlFor="valor">Valor (R$)</Label>
+            <Input
+              id="valor"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              value={valorDeclarado}
+              onChange={(e) => setValorDeclarado(e.target.value)}
+              placeholder="0,00"
+              className="h-11 tabular-nums"
+              aria-invalid={Boolean(erros.valor)}
+            />
+            {erros.valor && (
+              <p className="text-sm text-destructive">{erros.valor}</p>
+            )}
+          </div>
+        )}
+
+        {/* Descrição (persistida, todos os tipos): detalha hotel, item, motivo,
+          ou observações do deslocamento. */}
+        {mostrarDescricao && (
+          <div className="grid gap-2">
+            <Label htmlFor="descricao">
+              Descrição{descricaoObrigatoria ? "" : " (opcional)"}
+            </Label>
+            <Textarea
+              id="descricao"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Detalhes adicionais (hotel, item comprado, motivo do almoço…)."
+              rows={3}
+              maxLength={1000}
+              aria-invalid={Boolean(erros.descricao)}
+            />
+            {erros.descricao && (
+              <p className="text-sm text-destructive">{erros.descricao}</p>
+            )}
+          </div>
+        )}
+
+        {/* Prévia do reembolso em destaque, recalculada em tempo real. */}
+        {previa !== null && (
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-accent px-5 py-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-accent-foreground">
+              <Sparkles className="size-4" />
+              {clientePermitido || mostrarValor || mostrarKm
+                ? "Prévia do reembolso"
+                : "Valor do reembolso"}
+            </div>
+            <span
+              aria-live="polite"
+              className="text-2xl font-extrabold tracking-tight tabular-nums text-primary"
+            >
+              {formatarBRL(previa)}
+            </span>
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          Valor estimado. O cálculo final é refeito pelo sistema no
+          processamento — sem necessidade de anexar comprovantes.
+        </p>
+
+        <Button type="submit" className="h-11 w-full sm:w-auto" disabled={enviando}>
+          {enviando ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              {editando ? "Salvando..." : "Registrando..."}
+            </>
+          ) : editando ? (
+            "Salvar Alterações"
+          ) : (
+            "Registrar Lançamento"
+          )}
+        </Button>
+      </form>
+
+      <AlertDialog open={mostrarModalContinuar} onOpenChange={setMostrarModalContinuar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Adicionar outra despesa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A despesa foi registrada com sucesso. Deseja adicionar mais uma despesa ou voltar para o início?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={(e) => {
+                e.preventDefault();
+                setMostrarModalContinuar(false);
+                if (onSucesso) {
+                  onSucesso();
+                } else {
+                  router.push(comoAdmin ? "/admin/dashboard" : "/analista/dashboard");
+                }
+              }}
+            >
+              Não, voltar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setMostrarModalContinuar(false);
+                limpar();
+              }}
+            >
+              Sim, adicionar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
