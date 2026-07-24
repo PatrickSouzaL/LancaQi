@@ -20,7 +20,7 @@ export default async function AdminLancamentoPage() {
       />
       <Card className="max-w-2xl shadow-sm">
         <CardContent className="pt-6">
-          <FormularioDespesa taxas={taxas} clientes={clientes} />
+          <FormularioDespesa taxas={taxas} clientes={clientes} comoAdmin />
         </CardContent>
       </Card>
     </>
