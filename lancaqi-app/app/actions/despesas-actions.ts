@@ -122,21 +122,21 @@ const REFINE_DESCRICAO = {
   message: "Descreva a despesa.",
 };
 
-// Regra exclusiva da CRIAÇÃO: a data não pode ter mais de 4 dias no passado.
+// Regra exclusiva da CRIAÇÃO: a data não pode ter mais de 3 dias no passado.
 // (A edição continua sob a janela de 1 ano do schema base — não trava despesas
 // antigas já registradas.)
 const exigeCriacaoRecente = (d: DespesaCampos) => {
   try {
     const target = startOfDay(parseISO(d.data));
-    const quatroDiasAtras = startOfDay(subDays(new Date(), 4));
-    return !isBefore(target, quatroDiasAtras);
+    const tresDiasAtras = startOfDay(subDays(new Date(), 3));
+    return !isBefore(target, tresDiasAtras);
   } catch {
     return false;
   }
 };
 const REFINE_DATA_RECENTE = {
   path: ["data"],
-  message: "A data não pode ter mais de 4 dias no passado.",
+  message: "A data não pode ter mais de 3 dias no passado.",
 };
 
 const CriarDespesaSchema = DespesaCamposSchema.refine(exigeKmValido, REFINE_KM)
