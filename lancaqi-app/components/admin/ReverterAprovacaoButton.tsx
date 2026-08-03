@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Loader2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { aprovarDespesa } from "@/app/actions/admin-actions";
+import { reverterAprovacao } from "@/app/actions/admin-actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,13 +19,12 @@ import {
 import { Button } from "@/components/ui/button";
 
 /**
- * Aprova uma despesa (status PENDENTE → APROVADO) com confirmação. Autorização
- * real na RLS (`is_admin()`); a action `aprovarDespesa` só transiciona pendentes
- * e registra a decisão na trilha de auditoria. O diálogo só fecha após a
- * conclusão (spinner no botão durante a transição). Aprovar libera a despesa
- * para o Fechamento Quinzenal; o pagamento em si acontece lá.
+ * Reverte uma aprovação feita por engano (status APROVADO → PENDENTE): a despesa
+ * volta para a fila de Aprovações e sai do Fechamento. Autorização real na RLS
+ * (`is_admin()`); a action só transiciona quem está APROVADO. Confirmação com
+ * spinner; o diálogo só fecha após a conclusão.
  */
-export function AprovarDespesaButton({
+export function ReverterAprovacaoButton({
   id,
   nome,
 }: {
@@ -33,14 +32,14 @@ export function AprovarDespesaButton({
   nome: string;
 }) {
   const [aberto, setAberto] = useState(false);
-  const [aprovando, startTransition] = useTransition();
+  const [revertendo, startTransition] = useTransition();
 
   function confirmar(e: React.MouseEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const resultado = await aprovarDespesa(id);
+      const resultado = await reverterAprovacao(id);
       if (resultado.ok) {
-        toast.success(resultado.message ?? "Despesa aprovada.");
+        toast.success(resultado.message ?? "Aprovação revertida.");
         setAberto(false);
       } else {
         toast.error(resultado.error);
@@ -54,36 +53,36 @@ export function AprovarDespesaButton({
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-emerald-600"
-          aria-label={`Aprovar despesa de ${nome}`}
+          className="text-muted-foreground hover:text-amber-600"
+          aria-label={`Reverter aprovação da despesa de ${nome}`}
         >
-          <CheckCircle2 className="size-4" />
+          <Undo2 className="size-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Aprovar despesa?</AlertDialogTitle>
+          <AlertDialogTitle>Reverter aprovação?</AlertDialogTitle>
           <AlertDialogDescription>
             A despesa de{" "}
-            <span className="font-medium text-foreground">{nome}</span> será
-            marcada como <span className="font-medium">aprovada</span> e entrará
-            no próximo Fechamento Quinzenal. O analista não poderá mais editá-la.
+            <span className="font-medium text-foreground">{nome}</span> voltará
+            para <span className="font-medium">pendente</span> e sairá do próximo
+            fechamento, podendo ser aprovada ou negada novamente.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={aprovando}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={revertendo}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={confirmar}
-            disabled={aprovando}
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
+            disabled={revertendo}
+            className="bg-amber-600 text-white hover:bg-amber-700"
           >
-            {aprovando ? (
+            {revertendo ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Aprovando...
+                Revertendo...
               </>
             ) : (
-              "Aprovar"
+              "Reverter"
             )}
           </AlertDialogAction>
         </AlertDialogFooter>
