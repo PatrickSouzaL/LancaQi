@@ -2,8 +2,8 @@
  * Badges de `tipo` e `status`.
  *
  * Cores harmonizadas com os gráficos (Escritório=slate, Carro=blue, Moto=sky)
- * e status no padrão do guideline (Pendente=amber, Pago=emerald). Tons 100/700
- * garantem contraste AA. Server Components puros.
+ * e status no padrão do guideline (Pendente=amber, Aprovado=sky, Negado=rose,
+ * Pago=emerald). Tons 100/700 garantem contraste AA. Server Components puros.
  */
 import { Badge } from "@/components/ui/badge";
 import { labelStatus, labelTipo } from "@/lib/format";
@@ -27,8 +27,10 @@ const ESTILO_TIPO: Record<TipoDespesa, string> = {
 };
 
 const ESTILO_STATUS: Record<StatusDespesa, string> = {
-  PAGO: "bg-emerald-100 text-emerald-700",
   PENDENTE: "bg-amber-100 text-amber-800",
+  APROVADO: "bg-sky-100 text-sky-700",
+  NEGADO: "bg-rose-100 text-rose-700",
+  PAGO: "bg-emerald-100 text-emerald-700",
 };
 
 export function TipoBadge({ tipo }: { tipo: TipoDespesa }) {

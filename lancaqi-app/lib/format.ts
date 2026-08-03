@@ -45,6 +45,8 @@ const LABEL_TIPO: Record<TipoDespesa, string> = {
 
 const LABEL_STATUS: Record<StatusDespesa, string> = {
   PENDENTE: "Pendente",
+  APROVADO: "Aprovado",
+  NEGADO: "Negado",
   PAGO: "Pago",
 };
 
