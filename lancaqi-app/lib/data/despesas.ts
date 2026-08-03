@@ -121,9 +121,14 @@ export async function getDespesasRecentes(limite = 5): Promise<Despesa[]> {
 }
 
 /**
- * Fila do Fechamento Quinzenal (apenas PENDENTE). Com `periodo`, restringe à
- * quinzena vigente (intervalo de `data`), para o pagamento não misturar
- * pendências de quinzenas anteriores.
+ * Fila do Fechamento Quinzenal — apenas despesas já **APROVADAS** pelo Admin
+ * (o gate de aprovação precede o pagamento). Com `periodo`, restringe à quinzena
+ * vigente (intervalo de `data`), para o pagamento não misturar aprovadas de
+ * quinzenas anteriores. NEGADAS ficam de fora; PENDENTES aguardam decisão.
+ *
+ * Nome mantido por compatibilidade com os consumidores (fechamento, resumos e
+ * exports); o que muda é o estado consumido (PENDENTE → APROVADO). Ver
+ * `_docs/02-Architecture/feature_expense_approval.md`.
  */
 export async function getDespesasPendentes(
   periodo?: Periodo,
@@ -132,7 +137,7 @@ export async function getDespesasPendentes(
   let query = supabase
     .from("despesas")
     .select(DESPESA_SELECT)
-    .eq("status", "PENDENTE")
+    .eq("status", "APROVADO")
     .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
@@ -145,6 +150,39 @@ export async function getDespesasPendentes(
   if (error) {
     console.error(
       "getDespesasPendentes: falha ao ler despesas.",
+      error.message,
+    );
+    return [];
+  }
+  return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
+}
+
+/**
+ * Fila de Aprovações do Admin — despesas ainda **PENDENTES**, aguardando a
+ * decisão (aprovar/negar). Com `periodo`, restringe à quinzena informada. Ordena
+ * pelas mais antigas primeiro (`criado_em ASC`) para o Admin decidir por ordem
+ * de chegada. Restrito pela RLS `is_admin()`.
+ */
+export async function getDespesasParaAprovacao(
+  periodo?: Periodo,
+): Promise<Despesa[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("despesas")
+    .select(DESPESA_SELECT)
+    .eq("status", "PENDENTE")
+    .order("data", { ascending: true })
+    .order("criado_em", { ascending: true });
+
+  if (periodo) {
+    query = query.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(
+      "getDespesasParaAprovacao: falha ao ler despesas.",
       error.message,
     );
     return [];

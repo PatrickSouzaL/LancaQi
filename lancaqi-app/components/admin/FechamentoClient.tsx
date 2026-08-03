@@ -39,10 +39,11 @@ import type { Despesa } from "@/lib/types";
  * processa os uuids server-side — a lista de IDs do cliente nunca é autoritativa
  * (a RLS é a barreira final).
  *
- * Na quinzena vigente todas as linhas são PENDENTE. Em `consulta` (quinzena
- * anterior) as despesas vêm com status misto (PAGO + PENDENTE): a coluna Status
- * aparece e só as PENDENTE ficam selecionáveis, permitindo pagar em lote também
- * o período passado. O export (CSV) sempre cobre a quinzena exibida.
+ * Na quinzena vigente todas as linhas são APROVADO (passaram pelo gate de
+ * aprovação e aguardam pagamento). Em `consulta` (quinzena anterior) as despesas
+ * vêm com status misto: a coluna Status aparece e só as APROVADO ficam
+ * selecionáveis, permitindo pagar em lote também o período passado. O export
+ * (CSV) sempre cobre a quinzena exibida.
  */
 export function FechamentoClient({
   pendentes,
@@ -60,9 +61,9 @@ export function FechamentoClient({
   // Ordenação client-side (headers clicáveis). Padrão: data desc.
   const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(pendentes);
 
-  // Só PENDENTE é pagável (as já pagas viram apenas leitura no modo consulta).
+  // Só APROVADO é pagável (pendentes aguardam o gate; pagas/negadas são leitura).
   const selecionaveis = useMemo(
-    () => pendentes.filter((d) => d.status === "PENDENTE"),
+    () => pendentes.filter((d) => d.status === "APROVADO"),
     [pendentes],
   );
 
@@ -126,7 +127,7 @@ export function FechamentoClient({
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="space-y-1.5">
           <CardTitle>
-            {consulta ? "Despesas do Período" : "Despesas Pendentes"}
+            {consulta ? "Despesas do Período" : "Despesas Aprovadas"}
           </CardTitle>
           <CardDescription>
             {consulta ? (
@@ -143,7 +144,7 @@ export function FechamentoClient({
               </>
             ) : (
               <>
-                {pendentes.length} pendentes • {selecionados.size} selecionadas (
+                {pendentes.length} aprovadas • {selecionados.size} selecionadas (
                 {formatarBRL(totalSelecionado)})
               </>
             )}
@@ -179,7 +180,7 @@ export function FechamentoClient({
           <p className="py-8 text-center text-sm text-muted-foreground">
             {consulta
               ? "Nenhuma despesa no período."
-              : "Nenhuma despesa pendente."}
+              : "Nenhuma despesa aprovada para pagamento."}
           </p>
         ) : (
           <Table>
@@ -242,9 +243,9 @@ export function FechamentoClient({
                     data-state={marcado ? "selected" : undefined}
                   >
                     <TableCell>
-                      {/* Só as PENDENTE são pagáveis; as já pagas ficam sem
+                      {/* Só as APROVADO são pagáveis; as demais ficam sem
                           checkbox (a coluna Status ao lado indica o estado). */}
-                      {d.status === "PENDENTE" && (
+                      {d.status === "APROVADO" && (
                         <Checkbox
                           checked={marcado}
                           onCheckedChange={(v) => alternarUm(d.id, v)}
