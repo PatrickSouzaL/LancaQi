@@ -1,16 +1,19 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { marcarLotePago } from "@/app/actions/admin-actions";
-import { AnalistaCell } from "@/components/admin/AnalistaCell";
+import { aprovarLote } from "@/app/actions/admin-actions";
 import {
   CabecalhoOrdenavel,
   useDespesasOrdenadas,
 } from "@/components/admin/OrdenacaoDespesas";
-import { StatusBadge, TipoBadge } from "@/components/admin/StatusBadges";
+import { AnalistaCell } from "@/components/admin/AnalistaCell";
+import { AprovarDespesaButton } from "@/components/admin/AprovarDespesaButton";
+import { DetalhesDespesaButton } from "@/components/admin/DetalhesDespesaButton";
+import { NegarDespesaButton } from "@/components/admin/NegarDespesaButton";
+import { TipoBadge } from "@/components/admin/StatusBadges";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,41 +35,26 @@ import { formatarBRL, formatarData, formatarKm } from "@/lib/format";
 import type { Despesa } from "@/lib/types";
 
 /**
- * Consolidação das despesas para pagamento em lote no Fechamento.
+ * Painel de Aprovações (gate do Admin). Lista as despesas PENDENTES enviadas
+ * pelos analistas. Duas formas de aprovar:
+ *  - Em massa: seleção por checkbox + "Aprovar selecionadas" (`aprovarLote`).
+ *  - Individual: negar exige um motivo por linha (`NegarDespesaButton`).
  *
- * O total selecionado é somado em tempo real (useMemo) apenas para feedback
- * de UI. No alvo, a marcação roda numa Server Action que valida `is_admin()` e
- * processa os uuids server-side — a lista de IDs do cliente nunca é autoritativa
- * (a RLS é a barreira final).
- *
- * Na quinzena vigente todas as linhas são APROVADO (passaram pelo gate de
- * aprovação e aguardam pagamento). Em `consulta` (quinzena anterior) as despesas
- * vêm com status misto: a coluna Status aparece e só as APROVADO ficam
- * selecionáveis, permitindo pagar em lote também o período passado. O export
- * (CSV) sempre cobre a quinzena exibida.
+ * As decisões rodam em Server Actions que revalidam esta rota — as linhas
+ * decididas somem da fila na próxima renderização. A lista de ids do cliente
+ * nunca é autoritativa: o servidor só transiciona PENDENTE e a RLS `is_admin()`
+ * é a barreira final. Cabeçalhos ordenáveis; ordem neutra pela DATA (desc).
  */
-export function FechamentoClient({
-  pendentes,
-  consulta = false,
-  queryPeriodo = "",
-}: {
-  pendentes: Despesa[];
-  consulta?: boolean;
-  /** `"?periodo=anterior"` no modo consulta; vazio na quinzena vigente. */
-  queryPeriodo?: string;
-}) {
+export function AprovacoesClient({ pendentes }: { pendentes: Despesa[] }) {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [processando, startTransition] = useTransition();
 
-  // Ordenação client-side (headers clicáveis). Padrão: data desc.
   const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(pendentes);
 
-  // Só APROVADO é pagável (pendentes aguardam o gate; pagas/negadas são leitura).
-  const selecionaveis = useMemo(
-    () => pendentes.filter((d) => d.status === "APROVADO"),
+  const total = useMemo(
+    () => pendentes.reduce((soma, d) => soma + d.valor_calculado, 0),
     [pendentes],
   );
-
   const totalSelecionado = useMemo(
     () =>
       pendentes
@@ -75,14 +63,8 @@ export function FechamentoClient({
     [pendentes, selecionados],
   );
 
-  // Total de todo o período (exibido no modo consulta).
-  const totalPeriodo = useMemo(
-    () => pendentes.reduce((soma, d) => soma + d.valor_calculado, 0),
-    [pendentes],
-  );
-
   const todosMarcados =
-    selecionaveis.length > 0 && selecionados.size === selecionaveis.length;
+    pendentes.length > 0 && selecionados.size === pendentes.length;
   const headerState: boolean | "indeterminate" = todosMarcados
     ? true
     : selecionados.size > 0
@@ -91,7 +73,7 @@ export function FechamentoClient({
 
   function alternarTodos(marcado: boolean | "indeterminate") {
     setSelecionados(
-      marcado === true ? new Set(selecionaveis.map((d) => d.id)) : new Set(),
+      marcado === true ? new Set(pendentes.map((d) => d.id)) : new Set(),
     );
   }
 
@@ -104,16 +86,16 @@ export function FechamentoClient({
     });
   }
 
-  function pagarSelecionados() {
+  function aprovarSelecionados() {
     const ids = [...selecionados];
     if (ids.length === 0) return;
     startTransition(async () => {
-      const resultado = await marcarLotePago(ids);
+      const resultado = await aprovarLote(ids);
       if (resultado.ok) {
         toast.success(
           resultado.atualizadas === 1
-            ? "1 despesa marcada como paga."
-            : `${resultado.atualizadas} despesas marcadas como pagas.`,
+            ? "1 despesa aprovada."
+            : `${resultado.atualizadas} despesas aprovadas.`,
         );
         setSelecionados(new Set());
       } else {
@@ -126,61 +108,44 @@ export function FechamentoClient({
     <Card className="shadow-sm">
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="space-y-1.5">
-          <CardTitle>
-            {consulta ? "Despesas do Período" : "Despesas Aprovadas"}
-          </CardTitle>
+          <CardTitle>Despesas aguardando aprovação</CardTitle>
           <CardDescription>
-            {consulta ? (
+            {pendentes.length}{" "}
+            {pendentes.length === 1 ? "pendente" : "pendentes"} •{" "}
+            {formatarBRL(total)}
+            {selecionados.size > 0 && (
               <>
-                {pendentes.length} lançamentos • {formatarBRL(totalPeriodo)} no
-                período
-                {selecionaveis.length > 0 && (
-                  <>
-                    {" "}
-                    • {selecionados.size} selecionadas (
-                    {formatarBRL(totalSelecionado)})
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                {pendentes.length} aprovadas • {selecionados.size} selecionadas (
-                {formatarBRL(totalSelecionado)})
+                {" "}
+                • {selecionados.size} selecionadas ({formatarBRL(totalSelecionado)}
+                )
               </>
             )}
           </CardDescription>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            {/* Download server-side (GET autenticado): despesas da quinzena
-                exibida (vigente = pendentes; consulta = todo o período). */}
-            <a href={`/admin/fechamento/export${queryPeriodo}`} download>
-              Exportar CSV
-            </a>
+        {pendentes.length > 0 && (
+          <Button
+            disabled={selecionados.size === 0 || processando}
+            onClick={aprovarSelecionados}
+            className="bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            {processando ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Aprovando...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="size-4" />
+                Aprovar selecionadas
+              </>
+            )}
           </Button>
-          {selecionaveis.length > 0 && (
-            <Button
-              disabled={selecionados.size === 0 || processando}
-              onClick={pagarSelecionados}
-            >
-              {processando ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Processando...
-                </>
-              ) : (
-                "Marcar como Pagos"
-              )}
-            </Button>
-          )}
-        </div>
+        )}
       </CardHeader>
       <CardContent>
         {pendentes.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            {consulta
-              ? "Nenhuma despesa no período."
-              : "Nenhuma despesa aprovada para pagamento."}
+            Nenhuma despesa pendente de aprovação.
           </p>
         ) : (
           <Table>
@@ -190,11 +155,9 @@ export function FechamentoClient({
                   <Checkbox
                     checked={headerState}
                     onCheckedChange={alternarTodos}
-                    aria-label="Selecionar todos"
-                    disabled={selecionaveis.length === 0}
+                    aria-label="Selecionar todas"
                   />
                 </TableHead>
-                {consulta && <TableHead>Status</TableHead>}
                 <CabecalhoOrdenavel
                   chave="usuario_nome"
                   ordenacao={ordenacao}
@@ -216,6 +179,8 @@ export function FechamentoClient({
                 >
                   Tipo
                 </CabecalhoOrdenavel>
+                <TableHead>Origem</TableHead>
+                <TableHead>Destino</TableHead>
                 <CabecalhoOrdenavel
                   chave="quantidade_km"
                   ordenacao={ordenacao}
@@ -232,6 +197,7 @@ export function FechamentoClient({
                 >
                   Valor (R$)
                 </CabecalhoOrdenavel>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -243,21 +209,12 @@ export function FechamentoClient({
                     data-state={marcado ? "selected" : undefined}
                   >
                     <TableCell>
-                      {/* Só as APROVADO são pagáveis; as demais ficam sem
-                          checkbox (a coluna Status ao lado indica o estado). */}
-                      {d.status === "APROVADO" && (
-                        <Checkbox
-                          checked={marcado}
-                          onCheckedChange={(v) => alternarUm(d.id, v)}
-                          aria-label={`Selecionar despesa de ${d.usuario_nome}`}
-                        />
-                      )}
+                      <Checkbox
+                        checked={marcado}
+                        onCheckedChange={(v) => alternarUm(d.id, v)}
+                        aria-label={`Selecionar despesa de ${d.usuario_nome}`}
+                      />
                     </TableCell>
-                    {consulta && (
-                      <TableCell>
-                        <StatusBadge status={d.status} />
-                      </TableCell>
-                    )}
                     <TableCell>
                       <AnalistaCell nome={d.usuario_nome} />
                     </TableCell>
@@ -267,11 +224,24 @@ export function FechamentoClient({
                     <TableCell>
                       <TipoBadge tipo={d.tipo} />
                     </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {d.origem}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {d.destino}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatarKm(d.quantidade_km)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums font-medium">
                       {formatarBRL(d.valor_calculado)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <DetalhesDespesaButton despesa={d} />
+                        <AprovarDespesaButton id={d.id} nome={d.usuario_nome} />
+                        <NegarDespesaButton id={d.id} nome={d.usuario_nome} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

@@ -27,22 +27,33 @@ export interface DespesaRow {
   descricao: string | null;
   status: StatusDespesa;
   cliente_id: string | null;
+  aprovador_id: string | null;
+  decidido_em: string | null;
+  motivo_negacao: string | null;
   criado_em: string;
   // Relacionamento to-one; o PostgREST pode retornar objeto ou array.
   usuarios: { nome: string | null } | { nome: string | null }[] | null;
 }
 
-/** Colunas selecionadas em toda leitura de despesas (inclui o join de nome). */
+/**
+ * Colunas selecionadas em toda leitura de despesas (inclui o join de nome).
+ *
+ * O embed é desambiguado por `!despesas_usuario_id_fkey`: como `despesas` passou
+ * a ter DUAS FKs para `usuarios` (`usuario_id` do autor e `aprovador_id` de quem
+ * decidiu), o PostgREST não sabe qual usar num `usuarios(nome)` genérico e falha
+ * com PGRST201. Fixamos a relação pelo autor (`usuario_id`).
+ */
 export const DESPESA_SELECT =
-  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, valor_declarado, descricao, status, cliente_id, criado_em, usuarios ( nome )";
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, valor_declarado, descricao, status, cliente_id, aprovador_id, decidido_em, motivo_negacao, criado_em, usuarios!despesas_usuario_id_fkey(nome)";
 
 /**
  * Variante com `!inner` no join: ao filtrar por `usuarios.nome` (busca server-
  * side com `ilike`), o inner join faz o PostgREST restringir as linhas-pai de
  * `despesas` — com o join padrão (left) o filtro não eliminaria as despesas.
+ * Mesma desambiguação por FK do autor (ver `DESPESA_SELECT`).
  */
 export const DESPESA_SELECT_BUSCA =
-  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, valor_declarado, descricao, status, cliente_id, criado_em, usuarios!inner ( nome )";
+  "id, usuario_id, data, origem, destino, tipo, quantidade_km, valor_calculado, valor_declarado, descricao, status, cliente_id, aprovador_id, decidido_em, motivo_negacao, criado_em, usuarios!despesas_usuario_id_fkey!inner(nome)";
 
 function nomeDoUsuario(usuarios: DespesaRow["usuarios"]): string {
   if (!usuarios) return "—";
@@ -75,6 +86,9 @@ export function mapDespesaFromDb(row: DespesaRow): Despesa {
     descricao: row.descricao,
     status: row.status,
     cliente_id: row.cliente_id,
+    aprovador_id: row.aprovador_id,
+    decidido_em: row.decidido_em,
+    motivo_negacao: row.motivo_negacao,
     criado_em: row.criado_em,
   };
 }

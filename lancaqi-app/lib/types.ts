@@ -3,7 +3,7 @@
  *
  * Derivados de `_docs/schema.sql` (fonte de verdade do banco):
  *  - `tipo`   → CHECK com 11 valores (deslocamentos + despesas gerais) — MAIÚSCULAS
- *  - `status` → CHECK ('PENDENTE' | 'PAGO')              — sem "REJEITADO"
+ *  - `status` → CHECK ('PENDENTE' | 'APROVADO' | 'NEGADO' | 'PAGO')
  *  - valores monetários em DECIMAL(10,2) (reais, BRL)
  *
  * Os labels em português ("Escritório"/"Pago") são responsabilidade da camada
@@ -33,8 +33,13 @@ export type TipoDespesa =
  */
 export type CategoriaDespesa = "DESLOCAMENTO" | "DESPESA";
 
-/** O schema só admite estes dois estados (CHECK em `despesas.status`). */
-export type StatusDespesa = "PENDENTE" | "PAGO";
+/**
+ * Ciclo de vida da despesa (CHECK em `despesas.status`). O Admin faz o gate de
+ * aprovação: `PENDENTE` (aguardando decisão) → `APROVADO` (entra no Fechamento)
+ * → `PAGO`; ou `PENDENTE` → `NEGADO` (terminal, com `motivo_negacao`). Ver
+ * `_docs/02-Architecture/feature_expense_approval.md`.
+ */
+export type StatusDespesa = "PENDENTE" | "APROVADO" | "NEGADO" | "PAGO";
 
 export interface Usuario {
   id: string; // uuid (auth.users.id)
@@ -69,6 +74,11 @@ export interface Despesa {
   descricao: string | null;
   status: StatusDespesa;
   cliente_id: string | null; // FK → clientes.id (null quando não há cliente)
+  /** Trilha de aprovação — preenchidos quando o Admin aprova/nega. */
+  aprovador_id: string | null; // FK → usuarios.id (quem decidiu por último)
+  decidido_em: string | null; // timestamptz (ISO) da decisão
+  /** Motivo obrigatório quando `status = 'NEGADO'`; `null` nos demais estados. */
+  motivo_negacao: string | null;
   criado_em: string; // timestamptz (ISO) — momento do registro no banco
 }
 

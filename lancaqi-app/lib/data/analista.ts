@@ -97,10 +97,15 @@ export async function getResumoAnalista(): Promise<ResumoAnalista> {
   const despesas = await getDespesasDoAnalista(quinzenaAtual());
   return despesas.reduce<ResumoAnalista>(
     (acc, d) => {
+      // Negadas não representam valor a receber: ficam fora de todos os totais.
+      if (d.status === "NEGADO") return acc;
+
       acc.totalQuinzena += d.valor_calculado;
       acc.quantidade += 1;
-      if (d.status === "PENDENTE") acc.totalPendente += d.valor_calculado;
-      else acc.totalPago += d.valor_calculado;
+      // PENDENTE (aguardando aprovação) e APROVADO (aguardando pagamento) somam
+      // como "a receber"; só PAGO conta como já reembolsado.
+      if (d.status === "PAGO") acc.totalPago += d.valor_calculado;
+      else acc.totalPendente += d.valor_calculado;
       return acc;
     },
     { totalQuinzena: 0, totalPendente: 0, totalPago: 0, quantidade: 0 },

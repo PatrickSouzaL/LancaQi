@@ -62,7 +62,7 @@ export default async function FechamentoPage({
     <>
       <PageHeading
         titulo="Fechamento Quinzenal"
-        descricao="Consolide e pague em lote as despesas pendentes do período."
+        descricao="Consolide e pague em lote as despesas aprovadas do período."
         acao={
           <div className="flex flex-col items-start gap-2 sm:items-end">
             {/* Legenda do período — orienta quem realiza o pagamento. */}
@@ -100,7 +100,7 @@ export default async function FechamentoPage({
           <CardTitle>Resumo por Analista</CardTitle>
           <CardDescription>
             Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)}{" "}
-            {consulta ? "no período" : "pendentes de pagamento"}
+            {consulta ? "no período" : "aprovadas para pagamento"}
           </CardDescription>
           {resumo.length > 0 && (
             <CardAction className="flex gap-2">
@@ -130,7 +130,7 @@ export default async function FechamentoPage({
             <p className="py-8 text-center text-sm text-muted-foreground">
               {consulta
                 ? "Nenhuma despesa no período."
-                : "Nenhuma despesa pendente no período."}
+                : "Nenhuma despesa aprovada no período."}
             </p>
           ) : (
             <Table>

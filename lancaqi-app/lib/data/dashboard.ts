@@ -118,9 +118,10 @@ export async function getDistribuicaoPorTipo(
 }
 
 /**
- * Resumo por analista do período. Por padrão considera apenas PENDENTE (fila de
- * pagamento). Com `todosStatus`, agrega PAGO + PENDENTE — usado no modo consulta
- * da quinzena anterior, onde o interesse é conferir o histórico, não pagar.
+ * Resumo por analista do período. Por padrão considera apenas as APROVADAS (fila
+ * de pagamento, via `getDespesasPendentes`). Com `todosStatus`, agrega todos os
+ * estados — usado no modo consulta da quinzena anterior, onde o interesse é
+ * conferir o histórico, não pagar.
  */
 export async function getResumoFechamento(
   periodo?: Periodo,
