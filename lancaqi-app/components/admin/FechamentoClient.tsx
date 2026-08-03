@@ -32,28 +32,39 @@ import { formatarBRL, formatarData, formatarKm } from "@/lib/format";
 import type { Despesa } from "@/lib/types";
 
 /**
- * Consolidação das despesas PENDENTE para pagamento em lote.
+ * Consolidação das despesas para pagamento em lote no Fechamento.
  *
  * O total selecionado é somado em tempo real (useMemo) apenas para feedback
  * de UI. No alvo, a marcação roda numa Server Action que valida `is_admin()` e
  * processa os uuids server-side — a lista de IDs do cliente nunca é autoritativa
  * (a RLS é a barreira final).
  *
- * Em `somenteLeitura` (consulta da quinzena anterior) as despesas vêm com status
- * misto (PAGO + PENDENTE): oculta seleção/pagamento/export e exibe o status.
+ * Na quinzena vigente todas as linhas são PENDENTE. Em `consulta` (quinzena
+ * anterior) as despesas vêm com status misto (PAGO + PENDENTE): a coluna Status
+ * aparece e só as PENDENTE ficam selecionáveis, permitindo pagar em lote também
+ * o período passado. O export (CSV) sempre cobre a quinzena exibida.
  */
 export function FechamentoClient({
   pendentes,
-  somenteLeitura = false,
+  consulta = false,
+  queryPeriodo = "",
 }: {
   pendentes: Despesa[];
-  somenteLeitura?: boolean;
+  consulta?: boolean;
+  /** `"?periodo=anterior"` no modo consulta; vazio na quinzena vigente. */
+  queryPeriodo?: string;
 }) {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [processando, startTransition] = useTransition();
 
   // Ordenação client-side (headers clicáveis). Padrão: data desc.
   const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(pendentes);
+
+  // Só PENDENTE é pagável (as já pagas viram apenas leitura no modo consulta).
+  const selecionaveis = useMemo(
+    () => pendentes.filter((d) => d.status === "PENDENTE"),
+    [pendentes],
+  );
 
   const totalSelecionado = useMemo(
     () =>
@@ -63,14 +74,14 @@ export function FechamentoClient({
     [pendentes, selecionados],
   );
 
-  // Total de todo o período (modo consulta, onde não há seleção).
+  // Total de todo o período (exibido no modo consulta).
   const totalPeriodo = useMemo(
     () => pendentes.reduce((soma, d) => soma + d.valor_calculado, 0),
     [pendentes],
   );
 
   const todosMarcados =
-    pendentes.length > 0 && selecionados.size === pendentes.length;
+    selecionaveis.length > 0 && selecionados.size === selecionaveis.length;
   const headerState: boolean | "indeterminate" = todosMarcados
     ? true
     : selecionados.size > 0
@@ -79,7 +90,7 @@ export function FechamentoClient({
 
   function alternarTodos(marcado: boolean | "indeterminate") {
     setSelecionados(
-      marcado === true ? new Set(pendentes.map((d) => d.id)) : new Set(),
+      marcado === true ? new Set(selecionaveis.map((d) => d.id)) : new Set(),
     );
   }
 
@@ -115,13 +126,20 @@ export function FechamentoClient({
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="space-y-1.5">
           <CardTitle>
-            {somenteLeitura ? "Despesas do Período" : "Despesas Pendentes"}
+            {consulta ? "Despesas do Período" : "Despesas Pendentes"}
           </CardTitle>
           <CardDescription>
-            {somenteLeitura ? (
+            {consulta ? (
               <>
-                {pendentes.length} lançamentos •{" "}
-                {formatarBRL(totalPeriodo)} no período
+                {pendentes.length} lançamentos • {formatarBRL(totalPeriodo)} no
+                período
+                {selecionaveis.length > 0 && (
+                  <>
+                    {" "}
+                    • {selecionados.size} selecionadas (
+                    {formatarBRL(totalSelecionado)})
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -131,14 +149,15 @@ export function FechamentoClient({
             )}
           </CardDescription>
         </div>
-        {!somenteLeitura && (
-          <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              {/* Download server-side (GET autenticado): todas as pendentes. */}
-              <a href="/admin/fechamento/export" download>
-                Exportar CSV
-              </a>
-            </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            {/* Download server-side (GET autenticado): despesas da quinzena
+                exibida (vigente = pendentes; consulta = todo o período). */}
+            <a href={`/admin/fechamento/export${queryPeriodo}`} download>
+              Exportar CSV
+            </a>
+          </Button>
+          {selecionaveis.length > 0 && (
             <Button
               disabled={selecionados.size === 0 || processando}
               onClick={pagarSelecionados}
@@ -152,13 +171,13 @@ export function FechamentoClient({
                 "Marcar como Pagos"
               )}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {pendentes.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            {somenteLeitura
+            {consulta
               ? "Nenhuma despesa no período."
               : "Nenhuma despesa pendente."}
           </p>
@@ -166,17 +185,15 @@ export function FechamentoClient({
           <Table>
             <TableHeader>
               <TableRow>
-                {somenteLeitura ? (
-                  <TableHead>Status</TableHead>
-                ) : (
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={headerState}
-                      onCheckedChange={alternarTodos}
-                      aria-label="Selecionar todos"
-                    />
-                  </TableHead>
-                )}
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={headerState}
+                    onCheckedChange={alternarTodos}
+                    aria-label="Selecionar todos"
+                    disabled={selecionaveis.length === 0}
+                  />
+                </TableHead>
+                {consulta && <TableHead>Status</TableHead>}
                 <CabecalhoOrdenavel
                   chave="usuario_nome"
                   ordenacao={ordenacao}
@@ -222,21 +239,22 @@ export function FechamentoClient({
                 return (
                   <TableRow
                     key={d.id}
-                    data-state={
-                      !somenteLeitura && marcado ? "selected" : undefined
-                    }
+                    data-state={marcado ? "selected" : undefined}
                   >
-                    {somenteLeitura ? (
-                      <TableCell>
-                        <StatusBadge status={d.status} />
-                      </TableCell>
-                    ) : (
-                      <TableCell>
+                    <TableCell>
+                      {/* Só as PENDENTE são pagáveis; as já pagas ficam sem
+                          checkbox (a coluna Status ao lado indica o estado). */}
+                      {d.status === "PENDENTE" && (
                         <Checkbox
                           checked={marcado}
                           onCheckedChange={(v) => alternarUm(d.id, v)}
                           aria-label={`Selecionar despesa de ${d.usuario_nome}`}
                         />
+                      )}
+                    </TableCell>
+                    {consulta && (
+                      <TableCell>
+                        <StatusBadge status={d.status} />
                       </TableCell>
                     )}
                     <TableCell>

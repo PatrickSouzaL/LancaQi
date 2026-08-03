@@ -44,6 +44,10 @@ export default async function FechamentoPage({
   const consulta = paramPeriodo === "anterior";
   const periodo = consulta ? quinzenaAnterior() : quinzenaAtual();
 
+  // Sufixo repassado aos endpoints de export para cobrirem a mesma quinzena da
+  // tela (vigente ou anterior).
+  const queryPeriodo = consulta ? "?periodo=anterior" : "";
+
   // Na quinzena vigente, a fila é só PENDENTE (pagamento em lote). No modo
   // consulta, trazemos tudo do período para conferência.
   const [pendentes, resumo, resumoClientes] = await Promise.all([
@@ -98,13 +102,24 @@ export default async function FechamentoPage({
             Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)}{" "}
             {consulta ? "no período" : "pendentes de pagamento"}
           </CardDescription>
-          {resumo.length > 0 && !consulta && (
-            <CardAction>
+          {resumo.length > 0 && (
+            <CardAction className="flex gap-2">
+              {/* Downloads server-side (GET autenticado): resumo por analista.
+                  O `?periodo=anterior` acompanha a quinzena consultada na tela. */}
               <Button variant="outline" asChild>
-                {/* Download server-side (GET autenticado): resumo por analista.
-                    XLSX com uma aba por analista + aba de resumo. */}
-                <a href="/admin/fechamento/export/analistas" download>
+                <a
+                  href={`/admin/fechamento/export/analistas${queryPeriodo}`}
+                  download
+                >
                   Exportar Excel
+                </a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a
+                  href={`/admin/fechamento/export/analistas/pdf${queryPeriodo}`}
+                  download="resumo-analistas.pdf"
+                >
+                  Exportar PDF
                 </a>
               </Button>
             </CardAction>
@@ -153,10 +168,14 @@ export default async function FechamentoPage({
       <ResumoClientesCard
         resumoClientes={resumoClientes}
         periodoRotulo={periodo.rotulo}
-        somenteLeitura={consulta}
+        queryPeriodo={queryPeriodo}
       />
 
-      <FechamentoClient pendentes={pendentes} somenteLeitura={consulta} />
+      <FechamentoClient
+        pendentes={pendentes}
+        consulta={consulta}
+        queryPeriodo={queryPeriodo}
+      />
     </>
   );
 }

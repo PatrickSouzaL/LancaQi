@@ -4,10 +4,10 @@ import {
   getResumoFechamentoPorCliente,
   SEM_CLIENTE_ID,
 } from "@/lib/data/dashboard";
-import { getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
 import { exigirAdmin } from "@/lib/data/guards";
-import { formatarData, labelTipo } from "@/lib/format";
-import { quinzenaAtual } from "@/lib/periodo";
+import { formatarData, labelStatus, labelTipo } from "@/lib/format";
+import { periodoFechamento } from "@/lib/periodo";
 import { FMT_BRL, FMT_KM, MIME_XLSX, nomeAbaSeguro } from "@/lib/xlsx";
 import type { Despesa } from "@/lib/types";
 
@@ -15,12 +15,15 @@ import type { Despesa } from "@/lib/types";
 export const runtime = "nodejs";
 
 /**
- * Exporta o Resumo por Cliente da quinzena vigente em XLSX (Fechamento).
+ * Exporta o Resumo por Cliente em XLSX (Fechamento).
  *
  * Aba "Resumo": consolidado por cliente (mesma agregação da tela), incluindo a
  * linha "Sem cliente". Uma aba por cliente: as despesas discriminadas (com o
  * analista de origem) cuja soma fecha o total daquele cliente. GET autenticado
  * (cookies de sessão) — o link de download abre direto no navegador.
+ *
+ * `?periodo=anterior` espelha o modo consulta: quinzena passada com TODOS os
+ * status (adiciona a coluna "Status"). `?internos=1` inclui clientes internos.
  */
 export async function GET(request: Request) {
   const contexto = await exigirAdmin();
@@ -28,15 +31,15 @@ export async function GET(request: Request) {
     return new Response(contexto.error, { status: 403 });
   }
 
+  const searchParams = new URL(request.url).searchParams;
   // `?internos=1` inclui clientes internos (Casa, Hype Tecnologia); por padrão
   // eles ficam de fora, acompanhando o estado inicial do resumo na tela.
-  const incluirInternos =
-    new URL(request.url).searchParams.get("internos") === "1";
+  const incluirInternos = searchParams.get("internos") === "1";
+  const { consulta, periodo } = periodoFechamento(searchParams.get("periodo"));
 
-  const periodo = quinzenaAtual();
   const [resumoCompleto, pendentes] = await Promise.all([
-    getResumoFechamentoPorCliente(periodo),
-    getDespesasPendentes(periodo),
+    getResumoFechamentoPorCliente(periodo, { todosStatus: consulta }),
+    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
   ]);
   const resumo = incluirInternos
     ? resumoCompleto
@@ -100,6 +103,8 @@ export async function GET(request: Request) {
       { header: "Destino", key: "destino", width: 24 },
       { header: "KM", key: "km", width: 10 },
       { header: "Valor (R$)", key: "valor", width: 16 },
+      // No modo consulta há status misto — a coluna diferencia PAGO de PENDENTE.
+      ...(consulta ? [{ header: "Status", key: "status", width: 12 }] : []),
     ];
     sheet.getRow(1).font = { bold: true };
 
@@ -112,6 +117,7 @@ export async function GET(request: Request) {
         destino: d.destino,
         km: d.quantidade_km,
         valor: d.valor_calculado,
+        ...(consulta ? { status: labelStatus(d.status) } : {}),
       });
       linha.getCell("km").numFmt = FMT_KM;
       linha.getCell("valor").numFmt = FMT_BRL;
@@ -134,11 +140,13 @@ export async function GET(request: Request) {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
 
+  const sufixo = consulta ? "-anterior" : "";
+
   return new Response(buffer, {
     status: 200,
     headers: {
       "Content-Type": MIME_XLSX,
-      "Content-Disposition": `attachment; filename="resumo-clientes-${hoje}.xlsx"`,
+      "Content-Disposition": `attachment; filename="resumo-clientes${sufixo}-${hoje}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });

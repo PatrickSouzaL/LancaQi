@@ -34,15 +34,24 @@ import type { ResumoFechamentoCliente } from "@/lib/types";
 export function ResumoClientesCard({
   resumoClientes,
   periodoRotulo,
-  somenteLeitura = false,
+  queryPeriodo = "",
 }: {
   resumoClientes: ResumoFechamentoCliente[];
   periodoRotulo: string;
-  /** Modo consulta (quinzena anterior): oculta o export, que só cobre a atual. */
-  somenteLeitura?: boolean;
+  /** `"?periodo=anterior"` no modo consulta; vazio na quinzena vigente. */
+  queryPeriodo?: string;
 }) {
   const [ocultarInternos, setOcultarInternos] = useState(true);
   const checkboxId = useId();
+
+  // Combina os filtros no link de download: `internos=1` espelha o toggle e
+  // `periodo=anterior` acompanha a quinzena consultada na tela.
+  function hrefExport(base: string): string {
+    const partes: string[] = [];
+    if (!ocultarInternos) partes.push("internos=1");
+    if (queryPeriodo) partes.push("periodo=anterior");
+    return partes.length ? `${base}?${partes.join("&")}` : base;
+  }
 
   // Só faz sentido oferecer o toggle quando há algum cliente interno no período.
   const temInternos = useMemo(
@@ -85,21 +94,25 @@ export function ResumoClientesCard({
             </Label>
           </div>
         )}
-        {visiveis.length > 0 && !somenteLeitura && (
-          <CardAction>
+        {visiveis.length > 0 && (
+          <CardAction className="flex gap-2">
+            {/* Downloads server-side (GET autenticado): resumo por cliente, com
+                uma aba/seção por cliente + resumo. Os filtros da tela (internos
+                e quinzena) viajam na query. */}
             <Button variant="outline" asChild>
-              {/* Download server-side (GET autenticado): resumo por cliente.
-                  XLSX com uma aba por cliente + aba de resumo. O `?internos=1`
-                  espelha o toggle da tela, incluindo os clientes internos. */}
               <a
-                href={
-                  ocultarInternos
-                    ? "/admin/fechamento/export/clientes"
-                    : "/admin/fechamento/export/clientes?internos=1"
-                }
+                href={hrefExport("/admin/fechamento/export/clientes")}
                 download
               >
                 Exportar Excel
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a
+                href={hrefExport("/admin/fechamento/export/clientes/pdf")}
+                download="resumo-clientes.pdf"
+              >
+                Exportar PDF
               </a>
             </Button>
           </CardAction>

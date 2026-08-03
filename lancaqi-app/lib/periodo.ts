@@ -93,6 +93,20 @@ export function mesAnterior(ref: string = hojeISO()): Periodo {
   };
 }
 
+/**
+ * Resolve o período do Fechamento a partir do search param `periodo` da tela.
+ * `?periodo=anterior` entra no modo consulta (quinzena passada, TODOS os status);
+ * qualquer outro valor cai na quinzena vigente. Centraliza a regra que a página
+ * e os endpoints de export precisam compartilhar para não divergirem.
+ */
+export function periodoFechamento(param?: string | null): {
+  consulta: boolean;
+  periodo: Periodo;
+} {
+  const consulta = param === "anterior";
+  return { consulta, periodo: consulta ? quinzenaAnterior() : quinzenaAtual() };
+}
+
 /** Quinzena imediatamente anterior à informada (padrão: a anterior à atual). */
 export function quinzenaAnterior(ref: Periodo = quinzenaAtual()): Periodo {
   const [ano, mes, dia] = ref.inicio.split("-").map(Number);

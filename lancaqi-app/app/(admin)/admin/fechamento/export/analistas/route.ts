@@ -1,10 +1,10 @@
 import { Workbook } from "exceljs";
 
 import { getResumoFechamento } from "@/lib/data/dashboard";
-import { getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
 import { exigirAdmin } from "@/lib/data/guards";
-import { formatarData, labelTipo } from "@/lib/format";
-import { quinzenaAtual } from "@/lib/periodo";
+import { formatarData, labelStatus, labelTipo } from "@/lib/format";
+import { periodoFechamento } from "@/lib/periodo";
 import { FMT_BRL, FMT_KM, MIME_XLSX, nomeAbaSeguro } from "@/lib/xlsx";
 import type { Despesa } from "@/lib/types";
 
@@ -12,23 +12,29 @@ import type { Despesa } from "@/lib/types";
 export const runtime = "nodejs";
 
 /**
- * Exporta o Resumo por Analista da quinzena vigente em XLSX (Fechamento).
+ * Exporta o Resumo por Analista em XLSX (Fechamento).
  *
  * Aba "Resumo": consolidado de todos os analistas (mesma agregação da tela).
  * Uma aba por analista: as despesas discriminadas cuja soma fecha o total
  * daquele analista. GET autenticado (cookies de sessão) — o link de download
  * abre direto no navegador.
+ *
+ * `?periodo=anterior` espelha o modo consulta: quinzena passada com TODOS os
+ * status (adiciona a coluna "Status" nas abas); o padrão é só PENDENTE da
+ * quinzena vigente.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const contexto = await exigirAdmin();
   if (!contexto.ok) {
     return new Response(contexto.error, { status: 403 });
   }
 
-  const periodo = quinzenaAtual();
+  const { consulta, periodo } = periodoFechamento(
+    new URL(request.url).searchParams.get("periodo"),
+  );
   const [resumo, pendentes] = await Promise.all([
-    getResumoFechamento(periodo),
-    getDespesasPendentes(periodo),
+    getResumoFechamento(periodo, { todosStatus: consulta }),
+    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
   ]);
 
   // Despesas agrupadas por analista, para as abas individuais.
@@ -88,6 +94,10 @@ export async function GET() {
       { header: "Destino", key: "destino", width: 24 },
       { header: "KM", key: "km", width: 10 },
       { header: "Valor (R$)", key: "valor", width: 16 },
+      // No modo consulta há status misto — a coluna diferencia PAGO de PENDENTE.
+      ...(consulta
+        ? [{ header: "Status", key: "status", width: 12 }]
+        : []),
       { header: "Descrição", key: "descricao", width: 40 },
     ];
     sheet.getRow(1).font = { bold: true };
@@ -100,6 +110,7 @@ export async function GET() {
         destino: d.destino,
         km: d.quantidade_km,
         valor: d.valor_calculado,
+        ...(consulta ? { status: labelStatus(d.status) } : {}),
         descricao: d.descricao ?? "",
       });
       linha.getCell("km").numFmt = FMT_KM;
@@ -124,11 +135,13 @@ export async function GET() {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
 
+  const sufixo = consulta ? "-anterior" : "";
+
   return new Response(buffer, {
     status: 200,
     headers: {
       "Content-Type": MIME_XLSX,
-      "Content-Disposition": `attachment; filename="resumo-analistas-${hoje}.xlsx"`,
+      "Content-Disposition": `attachment; filename="resumo-analistas${sufixo}-${hoje}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });
