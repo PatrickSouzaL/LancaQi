@@ -8,7 +8,7 @@ import {
 } from "@/lib/data/mappers";
 import { createClient } from "@/lib/supabase/server";
 import type { Periodo } from "@/lib/periodo";
-import type { Despesa, TipoDespesa } from "@/lib/types";
+import type { Despesa, StatusDespesa, TipoDespesa } from "@/lib/types";
 
 /**
  * Leitura de despesas via Supabase. O acesso é controlado pela RLS:
@@ -16,9 +16,15 @@ import type { Despesa, TipoDespesa } from "@/lib/types";
  * (`auth.uid() = usuario_id`). Ordenado por `criado_em DESC`.
  *
  * O filtro opcional de `periodo` restringe por intervalo de datas (quinzena),
- * aplicado server-side sobre a coluna `data` (DATE).
+ * aplicado server-side sobre a coluna `data` (DATE). O filtro opcional de
+ * `status` restringe o ciclo de vida, também server-side: um único estado
+ * (`.eq`) ou um conjunto (`.in`, ex.: `["APROVADO", "PAGO"]` — tudo que já
+ * passou pelo gate de aprovação, incluindo quinzenas passadas já pagas).
  */
-export async function getDespesas(periodo?: Periodo): Promise<Despesa[]> {
+export async function getDespesas(
+  periodo?: Periodo,
+  status?: StatusDespesa | StatusDespesa[],
+): Promise<Despesa[]> {
   const supabase = await createClient();
   let query = supabase
     .from("despesas")
@@ -28,6 +34,11 @@ export async function getDespesas(periodo?: Periodo): Promise<Despesa[]> {
 
   if (periodo) {
     query = query.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
+  if (status) {
+    query = Array.isArray(status)
+      ? query.in("status", status)
+      : query.eq("status", status);
   }
 
   const { data, error } = await query;
