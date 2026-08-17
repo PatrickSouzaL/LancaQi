@@ -2,7 +2,7 @@ import {
   getResumoFechamentoPorCliente,
   SEM_CLIENTE_ID,
 } from "@/lib/data/dashboard";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasFechamento } from "@/lib/data/despesas";
 import { exigirAdmin } from "@/lib/data/guards";
 import { formatarBRL, formatarData, formatarKm, labelStatus, labelTipo } from "@/lib/format";
 import { gerarPdfFechamento, MIME_PDF, type SecaoPdf } from "@/lib/pdf";
@@ -17,8 +17,8 @@ export const runtime = "nodejs";
  *
  * Seção "Resumo": consolidado por cliente (inclui "Sem cliente"); uma seção por
  * cliente com suas despesas discriminadas e subtotal. GET autenticado.
- * `?periodo=anterior` traz a quinzena passada com TODOS os status; `?internos=1`
- * inclui clientes internos.
+ * `?periodo=anterior` traz a quinzena passada com APROVADO + PAGO;
+ * `?internos=1` inclui clientes internos.
  */
 export async function GET(request: Request) {
   const contexto = await exigirAdmin();
@@ -31,8 +31,8 @@ export async function GET(request: Request) {
   const { consulta, periodo } = periodoFechamento(searchParams.get("periodo"));
 
   const [resumoCompleto, pendentes] = await Promise.all([
-    getResumoFechamentoPorCliente(periodo, { todosStatus: consulta }),
-    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
+    getResumoFechamentoPorCliente(periodo, { incluirPagas: consulta }),
+    getDespesasFechamento(periodo, { incluirPagas: consulta }),
   ]);
   const resumo = incluirInternos
     ? resumoCompleto
@@ -111,8 +111,8 @@ export async function GET(request: Request) {
     titulo: "Fechamento — Resumo por Cliente",
     periodoRotulo: periodo.rotulo,
     observacao: consulta
-      ? "Todos os status do período (PAGO + PENDENTE)."
-      : "Despesas pendentes de pagamento.",
+      ? "Somente despesas aprovadas do período (APROVADO + PAGO)."
+      : "Despesas aprovadas, pendentes de pagamento.",
     resumo: resumoSecao,
     secoes,
   });

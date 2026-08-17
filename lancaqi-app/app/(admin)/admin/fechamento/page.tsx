@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasFechamento } from "@/lib/data/despesas";
 import {
   getResumoFechamento,
   getResumoFechamentoPorCliente,
@@ -39,8 +39,8 @@ export default async function FechamentoPage({
   const { periodo: paramPeriodo } = await searchParams;
 
   // Modo consulta: `?periodo=anterior` troca a página inteira para a quinzena
-  // passada, exibindo TODAS as despesas (PAGO + PENDENTE) — sem ações de
-  // pagamento nem export (que sempre cobrem a quinzena vigente).
+  // passada, somando APROVADO + PAGO (o que já passou pelo gate). Continua
+  // permitindo pagar o que foi aprovado depois da virada.
   const consulta = paramPeriodo === "anterior";
   const periodo = consulta ? quinzenaAnterior() : quinzenaAtual();
 
@@ -48,12 +48,13 @@ export default async function FechamentoPage({
   // tela (vigente ou anterior).
   const queryPeriodo = consulta ? "?periodo=anterior" : "";
 
-  // Na quinzena vigente, a fila é só PENDENTE (pagamento em lote). No modo
-  // consulta, trazemos tudo do período para conferência.
+  // Em ambos os modos a base é a mesma: só despesas APROVADAS. O que muda é a
+  // inclusão das já PAGAS na consulta à quinzena anterior (fechamento fechado).
+  // PENDENTE/NEGADO nunca somam — a virada da quinzena não as adota.
   const [pendentes, resumo, resumoClientes] = await Promise.all([
-    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
-    getResumoFechamento(periodo, { todosStatus: consulta }),
-    getResumoFechamentoPorCliente(periodo, { todosStatus: consulta }),
+    getDespesasFechamento(periodo, { incluirPagas: consulta }),
+    getResumoFechamento(periodo, { incluirPagas: consulta }),
+    getResumoFechamentoPorCliente(periodo, { incluirPagas: consulta }),
   ]);
 
   const totalPeriodo = resumo.reduce((soma, r) => soma + r.totalPendente, 0);
@@ -100,7 +101,7 @@ export default async function FechamentoPage({
           <CardTitle>Resumo por Analista</CardTitle>
           <CardDescription>
             Quinzena de {periodo.rotulo} • {formatarBRL(totalPeriodo)}{" "}
-            {consulta ? "no período" : "aprovadas para pagamento"}
+            {consulta ? "aprovadas no período" : "aprovadas para pagamento"}
           </CardDescription>
           {resumo.length > 0 && (
             <CardAction className="flex gap-2">
@@ -128,9 +129,7 @@ export default async function FechamentoPage({
         <CardContent>
           {resumo.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              {consulta
-                ? "Nenhuma despesa no período."
-                : "Nenhuma despesa aprovada no período."}
+              Nenhuma despesa aprovada no período.
             </p>
           ) : (
             <Table>

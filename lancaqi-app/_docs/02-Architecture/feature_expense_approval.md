@@ -69,12 +69,12 @@ Mapeamento concreto das alterações necessárias (sem reescrever os arquivos aq
 | Arquivo / símbolo                                  | Mudança                                                                                                              |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `lib/tipos` / `lib/types.ts` → `StatusDespesa`     | Incluir `'APROVADO' \| 'NEGADO'` no union; adicionar rótulos/badges e cores para os novos estados.                   |
-| `lib/data/despesas.ts` → `getDespesasPendentes()`  | Passa a filtrar **`status = 'APROVADO'`** (é o que o fechamento consome).                                            |
+| `lib/data/despesas.ts` → `getDespesasFechamento()` (ex-`getDespesasPendentes()`) | Passa a filtrar **`status = 'APROVADO'`** (é o que o fechamento consome); com `{ incluirPagas: true }` soma também `PAGO`. Ver §7. |
 | `lib/data/despesas.ts` → **nova** `getDespesasParaAprovacao(periodo?)` | Filtra `status = 'PENDENTE'`, com join `usuarios(nome)` via `DESPESA_SELECT`, ordenada por `data`/`criado_em`. Alimenta a fila de aprovações. |
 | `components/admin/FechamentoClient.tsx` → `selecionaveis` | Filtro muda de `'PENDENTE'` para `'APROVADO'`.                                                                 |
 | `app/actions/admin-actions.ts` → `aprovarDespesa()`| **Realinhar semântica**: hoje faz `PENDENTE → PAGO`. Passa a fazer `PENDENTE → APROVADO` + log de auditoria. A transição para `PAGO` continua sendo responsabilidade de `marcarLotePago()` no fechamento. Evitar colisão semântica (avaliar renomear a intenção antiga). |
 
-> A mudança em `getDespesasPendentes()` é o ponto mais sensível: qualquer dashboard/soma que dependa dele para representar "a pagar" agora reflete apenas `APROVADO`. Revisar KPIs do dashboard admin ao implementar.
+> A mudança em `getDespesasFechamento()` é o ponto mais sensível: qualquer dashboard/soma que dependa dele para representar "a pagar" agora reflete apenas `APROVADO`. Revisar KPIs do dashboard admin ao implementar.
 
 ---
 
@@ -155,11 +155,43 @@ Detalhes de schema, índices, RLS e rollback: [[migration_expense_approval]].
 
 ---
 
-## 7. Checklist de Implementação (referência para o desenvolvimento)
+## 7. Competência da Quinzena (a virada não adota nada)
+
+> Regra adicionada em **2026-08-17**, corrigindo o comportamento em que a virada da quinzena arrastava para o fechamento anterior TUDO o que tinha data no período — inclusive `PENDENTE` e `NEGADO`.
+
+**Regra:** o fechamento de uma quinzena soma **exclusivamente** as despesas que passaram pelo gate de aprovação. A virada da quinzena não aprova nada por decurso de prazo.
+
+| Estado na virada | Entra no fechamento da quinzena? |
+| ---------------- | -------------------------------- |
+| `APROVADO`       | **Sim** — a pagar.               |
+| `PAGO`           | **Sim** — já quitado (só na consulta `?periodo=anterior`). |
+| `PENDENTE`       | **Não** — segue na fila de `/admin/aprovacoes` até haver decisão. |
+| `NEGADO`         | **Não** — nunca.                 |
+
+**Competência = DATA da despesa, não a data da decisão.** Uma despesa da quinzena passada aprovada *depois* da virada volta a somar no fechamento **daquela** quinzena — não na vigente. Na prática:
+
+1. `/admin/fechamento?periodo=anterior` reabre a quinzena passada já com o lançamento recém-aprovado;
+2. ele fica selecionável e pagável em lote naquele período;
+3. os exports (CSV/XLSX/PDF) daquele período refletem o mesmo recorte.
+
+Uma pendente que atravessa a virada é sinalizada na fila de Aprovações com o selo **"quinzena anterior"** — o Admin decide sabendo que a aprovação cai no fechamento passado. O início da quinzena vigente desce como prop resolvida no servidor (`quinzenaAtual().inicio`), para o recorte não depender do relógio/fuso do navegador.
+
+### Superfície afetada
+
+| Ponto | Recorte |
+| ----- | ------- |
+| `getDespesasFechamento(periodo, { incluirPagas })` | Fonte única: `.in("status", incluirPagas ? ["APROVADO","PAGO"] : ["APROVADO"])`. Substitui o par `getDespesas(periodo)` / `getDespesasPendentes(periodo)`. |
+| `getResumoFechamento` / `getResumoFechamentoPorCliente` | `todosStatus` → **`incluirPagas`**; ambos delegam a `getDespesasFechamento`. |
+| `/admin/fechamento` (+ 5 rotas de export) | `{ incluirPagas: consulta }` no lugar do ternário que trazia todos os status. |
+| `STATUS_CONSOLIDADO` | Movida de `lib/data/dashboard.ts` para `lib/data/despesas.ts` — dashboard e fechamento passam a compartilhar a mesma definição de "gasto consolidado". |
+
+---
+
+## 8. Checklist de Implementação (referência para o desenvolvimento)
 
 - [ ] Rodar `Migracao_005_Aprovacao_Despesas.sql` (ver [[migration_expense_approval]]).
 - [ ] Atualizar `StatusDespesa` e rótulos/badges de status.
-- [ ] `getDespesasPendentes()` → filtrar `APROVADO`; criar `getDespesasParaAprovacao()`.
+- [ ] `getDespesasFechamento()` → filtrar `APROVADO`; criar `getDespesasParaAprovacao()`.
 - [ ] Ajustar `FechamentoClient.tsx` (`selecionaveis` → `APROVADO`).
 - [ ] Realinhar `aprovarDespesa()` (→ `APROVADO` + log); criar `negarDespesa()`.
 - [ ] Criar rota `/admin/aprovacoes` + `AprovacoesClient` + `NegarDespesaButton`.

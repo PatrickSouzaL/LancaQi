@@ -16,8 +16,19 @@
               "icon": "lucide-git-fork",
               "title": "Visualização em gráfico"
             }
+          },
+          {
+            "id": "60c0ce673f508945",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "Nova aba"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -176,7 +187,7 @@
       "bases:Criar nova base": false
     }
   },
-  "active": "23e7413fa07ba841",
+  "active": "60c0ce673f508945",
   "lastOpenFiles": [
     "Proximos_Passos.md",
     "Proximos_Passos.md.tmp.26756.cf89dfe4188a",

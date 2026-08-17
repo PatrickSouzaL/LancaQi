@@ -4,7 +4,7 @@ import {
   getResumoFechamentoPorCliente,
   SEM_CLIENTE_ID,
 } from "@/lib/data/dashboard";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasFechamento } from "@/lib/data/despesas";
 import { exigirAdmin } from "@/lib/data/guards";
 import { formatarData, labelStatus, labelTipo } from "@/lib/format";
 import { periodoFechamento } from "@/lib/periodo";
@@ -22,8 +22,8 @@ export const runtime = "nodejs";
  * analista de origem) cuja soma fecha o total daquele cliente. GET autenticado
  * (cookies de sessão) — o link de download abre direto no navegador.
  *
- * `?periodo=anterior` espelha o modo consulta: quinzena passada com TODOS os
- * status (adiciona a coluna "Status"). `?internos=1` inclui clientes internos.
+ * `?periodo=anterior` espelha o modo consulta: quinzena passada com APROVADO +
+ * PAGO (adiciona a coluna "Status"). `?internos=1` inclui clientes internos.
  */
 export async function GET(request: Request) {
   const contexto = await exigirAdmin();
@@ -38,8 +38,8 @@ export async function GET(request: Request) {
   const { consulta, periodo } = periodoFechamento(searchParams.get("periodo"));
 
   const [resumoCompleto, pendentes] = await Promise.all([
-    getResumoFechamentoPorCliente(periodo, { todosStatus: consulta }),
-    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
+    getResumoFechamentoPorCliente(periodo, { incluirPagas: consulta }),
+    getDespesasFechamento(periodo, { incluirPagas: consulta }),
   ]);
   const resumo = incluirInternos
     ? resumoCompleto
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
       { header: "Destino", key: "destino", width: 24 },
       { header: "KM", key: "km", width: 10 },
       { header: "Valor (R$)", key: "valor", width: 16 },
-      // No modo consulta há status misto — a coluna diferencia PAGO de PENDENTE.
+      // No modo consulta há status misto — a coluna diferencia PAGO de APROVADO.
       ...(consulta ? [{ header: "Status", key: "status", width: 12 }] : []),
     ];
     sheet.getRow(1).font = { bold: true };

@@ -39,6 +39,21 @@ Objetivo: Refatorar a agregação de dados do dashboard para respeitar o status 
 
 ---
 
+## ✅ Fechamento — competência da quinzena (concluído em 2026-08-17)
+
+Problema: ao virar a quinzena, a consulta `?periodo=anterior` trazia **todos os status** do período, então despesas `PENDENTE` (e `NEGADO`) eram adotadas automaticamente nos totais do fechamento anterior — sem nunca terem passado pelo gate de aprovação.
+
+- [x] `getDespesasPendentes` → `getDespesasFechamento(periodo, { incluirPagas })`: filtro único `APROVADO` (+ `PAGO` na consulta).
+- [x] `getResumoFechamento` / `getResumoFechamentoPorCliente`: `todosStatus` → `incluirPagas`, delegando à mesma fonte.
+- [x] Tela `/admin/fechamento` e as 5 rotas de export (CSV, XLSX e PDF de analistas/clientes) no mesmo recorte.
+- [x] `STATUS_CONSOLIDADO` movida para `lib/data/despesas.ts` (compartilhada com o dashboard).
+- [x] Selo "quinzena anterior" na fila de Aprovações para pendentes que atravessaram a virada.
+- [x] Documentado em [[02-Architecture/feature_expense_approval]] §7.
+
+> Competência é a **data da despesa**: aprovar depois da virada soma no fechamento da quinzena de origem (`?periodo=anterior`), não na vigente. Enquanto seguir `PENDENTE`, não soma em fechamento nenhum.
+
+---
+
 ## 🔜 Próximas tarefas
 
 _Fila vazia. Adicione aqui a próxima demanda priorizada._

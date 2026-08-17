@@ -43,7 +43,7 @@ Nenhuma chamada Supabase nesta iteração, mas a UI foi estruturada para o Zero 
 
 - `lib/types.ts` — tipos estritos (sem `any`).
 - `lib/mock-data.ts` — dados estáticos (10 despesas variadas + tarifas).
-- `lib/data/*` — getters `async` (`getDespesas`, `getDespesasPendentes`,
+- `lib/data/*` — getters `async` (`getDespesas`, `getDespesasFechamento`,
   `getDashboardKpis`, `getResumoFechamento`, `getConfiguracoesTaxas`, `getUsuarioAtual`).
   Trocar o corpo por queries Supabase **não** altera as telas.
 - `lib/format.ts` — BRL/KM/data pt-BR, labels e iniciais.

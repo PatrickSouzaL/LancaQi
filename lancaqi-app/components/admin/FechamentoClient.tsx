@@ -39,11 +39,12 @@ import type { Despesa } from "@/lib/types";
  * processa os uuids server-side — a lista de IDs do cliente nunca é autoritativa
  * (a RLS é a barreira final).
  *
- * Na quinzena vigente todas as linhas são APROVADO (passaram pelo gate de
- * aprovação e aguardam pagamento). Em `consulta` (quinzena anterior) as despesas
- * vêm com status misto: a coluna Status aparece e só as APROVADO ficam
- * selecionáveis, permitindo pagar em lote também o período passado. O export
- * (CSV) sempre cobre a quinzena exibida.
+ * Em ambos os modos a lista só contém despesas que passaram pelo gate de
+ * aprovação — PENDENTE e NEGADO ficam de fora do fechamento mesmo depois de a
+ * quinzena virar. Na quinzena vigente todas as linhas são APROVADO (aguardando
+ * pagamento). Em `consulta` (quinzena anterior) entram também as PAGO: a coluna
+ * Status aparece e só as APROVADO ficam selecionáveis, permitindo pagar em lote
+ * o que foi aprovado depois da virada. O export (CSV) cobre a quinzena exibida.
  */
 export function FechamentoClient({
   pendentes,
@@ -61,7 +62,7 @@ export function FechamentoClient({
   // Ordenação client-side (headers clicáveis). Padrão: data desc.
   const { ordenadas, ordenacao, alternar } = useDespesasOrdenadas(pendentes);
 
-  // Só APROVADO é pagável (pendentes aguardam o gate; pagas/negadas são leitura).
+  // Só APROVADO é pagável; as PAGO da consulta ficam apenas como leitura.
   const selecionaveis = useMemo(
     () => pendentes.filter((d) => d.status === "APROVADO"),
     [pendentes],
@@ -127,13 +128,13 @@ export function FechamentoClient({
       <CardHeader className="flex-row items-center justify-between gap-4">
         <div className="space-y-1.5">
           <CardTitle>
-            {consulta ? "Despesas do Período" : "Despesas Aprovadas"}
+            {consulta ? "Despesas Aprovadas do Período" : "Despesas Aprovadas"}
           </CardTitle>
           <CardDescription>
             {consulta ? (
               <>
-                {pendentes.length} lançamentos • {formatarBRL(totalPeriodo)} no
-                período
+                {pendentes.length} lançamentos • {formatarBRL(totalPeriodo)}{" "}
+                aprovados no período
                 {selecionaveis.length > 0 && (
                   <>
                     {" "}
@@ -179,7 +180,7 @@ export function FechamentoClient({
         {pendentes.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {consulta
-              ? "Nenhuma despesa no período."
+              ? "Nenhuma despesa aprovada no período."
               : "Nenhuma despesa aprovada para pagamento."}
           </p>
         ) : (
@@ -243,7 +244,7 @@ export function FechamentoClient({
                     data-state={marcado ? "selected" : undefined}
                   >
                     <TableCell>
-                      {/* Só as APROVADO são pagáveis; as demais ficam sem
+                      {/* Só as APROVADO são pagáveis; as PAGO ficam sem
                           checkbox (a coluna Status ao lado indica o estado). */}
                       {d.status === "APROVADO" && (
                         <Checkbox
