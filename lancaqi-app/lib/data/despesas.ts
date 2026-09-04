@@ -132,23 +132,37 @@ export async function getDespesasRecentes(limite = 5): Promise<Despesa[]> {
 }
 
 /**
- * Fila do Fechamento Quinzenal — apenas despesas já **APROVADAS** pelo Admin
- * (o gate de aprovação precede o pagamento). Com `periodo`, restringe à quinzena
- * vigente (intervalo de `data`), para o pagamento não misturar aprovadas de
- * quinzenas anteriores. NEGADAS ficam de fora; PENDENTES aguardam decisão.
- *
- * Nome mantido por compatibilidade com os consumidores (fechamento, resumos e
- * exports); o que muda é o estado consumido (PENDENTE → APROVADO). Ver
- * `_docs/02-Architecture/feature_expense_approval.md`.
+ * Estados que já passaram pelo gate de aprovação e, por isso, compõem o
+ * Fechamento: `APROVADO` (a pagar) + `PAGO` (já quitado). `PENDENTE` e `NEGADO`
+ * **nunca** entram — nem no período vigente, nem quando a quinzena vira.
  */
-export async function getDespesasPendentes(
+export const STATUS_CONSOLIDADO: StatusDespesa[] = ["APROVADO", "PAGO"];
+
+/**
+ * Base do Fechamento Quinzenal — apenas despesas já **APROVADAS** pelo Admin
+ * (o gate de aprovação precede o pagamento). Com `periodo`, restringe ao
+ * intervalo de `data` da quinzena.
+ *
+ * Regra de competência: a quinzena de uma despesa é a da sua **data**, não a da
+ * decisão. Uma despesa da quinzena passada aprovada depois da virada volta a
+ * somar no fechamento daquela quinzena (consultável em `?periodo=anterior`); a
+ * que continuar `PENDENTE` ou `NEGADO` não soma em fechamento nenhum — segue na
+ * fila de `/admin/aprovacoes` até haver decisão.
+ *
+ * `incluirPagas` acrescenta as `PAGO` — usado na consulta da quinzena anterior,
+ * onde o lote já foi quitado e o interesse é conferir o fechamento fechado. Na
+ * quinzena vigente fica fora, para a fila de pagamento não repetir o já pago.
+ * Ver `_docs/02-Architecture/feature_expense_approval.md`.
+ */
+export async function getDespesasFechamento(
   periodo?: Periodo,
+  opts: { incluirPagas?: boolean } = {},
 ): Promise<Despesa[]> {
   const supabase = await createClient();
   let query = supabase
     .from("despesas")
     .select(DESPESA_SELECT)
-    .eq("status", "APROVADO")
+    .in("status", opts.incluirPagas ? STATUS_CONSOLIDADO : ["APROVADO"])
     .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
@@ -160,7 +174,7 @@ export async function getDespesasPendentes(
 
   if (error) {
     console.error(
-      "getDespesasPendentes: falha ao ler despesas.",
+      "getDespesasFechamento: falha ao ler despesas.",
       error.message,
     );
     return [];

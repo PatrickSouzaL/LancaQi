@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CalendarClock, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { aprovarLote } from "@/app/actions/admin-actions";
@@ -44,8 +44,20 @@ import type { Despesa } from "@/lib/types";
  * decididas somem da fila na próxima renderização. A lista de ids do cliente
  * nunca é autoritativa: o servidor só transiciona PENDENTE e a RLS `is_admin()`
  * é a barreira final. Cabeçalhos ordenáveis; ordem neutra pela DATA (desc).
+ *
+ * Lançamentos com data anterior a `inicioQuinzenaAtual` sobreviveram à virada
+ * da quinzena: ganham o selo "quinzena anterior" porque, ao serem aprovados,
+ * somam no fechamento daquela quinzena (a competência é a DATA da despesa), não
+ * no da vigente. Enquanto seguirem pendentes, não somam em fechamento nenhum.
  */
-export function AprovacoesClient({ pendentes }: { pendentes: Despesa[] }) {
+export function AprovacoesClient({
+  pendentes,
+  inicioQuinzenaAtual,
+}: {
+  pendentes: Despesa[];
+  /** Primeiro dia da quinzena vigente (ISO), resolvido no servidor. */
+  inicioQuinzenaAtual: string;
+}) {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [processando, startTransition] = useTransition();
 
@@ -219,7 +231,20 @@ export function AprovacoesClient({ pendentes }: { pendentes: Despesa[] }) {
                       <AnalistaCell nome={d.usuario_nome} />
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {formatarData(d.data)}
+                      <span className="flex items-center gap-1.5">
+                        {formatarData(d.data)}
+                        {/* A despesa atravessou a virada: aprovar hoje a joga
+                            no fechamento da quinzena passada, não na vigente. */}
+                        {d.data < inicioQuinzenaAtual && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
+                            title="Lançamento de quinzena já encerrada — ao aprovar, soma no fechamento daquela quinzena."
+                          >
+                            <CalendarClock className="size-3" />
+                            quinzena anterior
+                          </span>
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <TipoBadge tipo={d.tipo} />

@@ -28,7 +28,7 @@ export default async function DashboardPage({
   const { chave, periodo, periodoAnterior, from, to } =
     resolverPeriodoDashboard(params);
 
-  // Agregações server-side (nunca somadas no cliente); o cliente recebe só
+  // Agregações server-side (nunca somadas no cliente); o cliente recebe sóa
   // os dados já prontos para os gráficos. Gasto/gráficos = APROVADO; o card
   // de pendências conta as PENDENTE (ver getDashboardKpis).
   const [kpis, gastosPorDia, distribuicao, recentes] = await Promise.all([

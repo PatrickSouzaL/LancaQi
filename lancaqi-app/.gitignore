@@ -1,5 +1,5 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-/claude
+
 # dependencies
 /node_modules
 /.pnp
@@ -19,16 +19,22 @@
 
 # production
 /build
+/dist
+.turbo/
+.swc/
 
 # misc
 .DS_Store
-*.pem
+Thumbs.db
+Desktop.ini
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+logs/
+*.log
 
 # env files (can opt-in for committing if needed)
 .env
@@ -37,10 +43,96 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .env*
+!.env.example
 
-# vercel
+# credenciais e chaves
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
+*.asc
+*.gpg
+id_rsa*
+id_ed25519*
+.netrc
+service-account*.json
+*credentials*.json
+*serviceaccount*.json
+secrets/
+credentials/
+
+# dados financeiros e bancos locais
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.dump
+*.bak
+*.backup
+*.sql.gz
+*.csv
+*.xls
+*.xlsx
+*.xlsm
+*.ofx
+*.qfx
+*.qif
+backups/
+dumps/
+uploads/
+comprovantes/
+notas_fiscais/
+extratos/
+
+# vercel / supabase
 .vercel
+.supabase/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agentes de IA e documentacao interna
+.claude/
+.cursor/
+.cursorrules
+.cursorignore
+.windsurf/
+.aider*
+.codeium/
+.continue/
+.gemini/
+.roo/
+.cline/
+.specstory/
+.github/copilot-instructions.md
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+_docs/
+docs-internal/
+rascunhos/
+rascunho/
+drafts/
+scratch/
+notes/
+tmp/
+temp/
+
+# editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# relatorios de auditoria
+gitleaks-report.json

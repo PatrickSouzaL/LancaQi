@@ -11,7 +11,11 @@
  */
 import { SEM_CLIENTE_ID, isClienteInterno } from "@/lib/clientes-fechamento";
 import { getClientes } from "@/lib/data/clientes";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import {
+  getDespesas,
+  getDespesasFechamento,
+  STATUS_CONSOLIDADO,
+} from "@/lib/data/despesas";
 import { categoriaDe, TODOS_TIPOS } from "@/lib/despesas-tipos";
 import { quinzenaAnterior, quinzenaAtual, type Periodo } from "@/lib/periodo";
 import type {
@@ -21,7 +25,6 @@ import type {
   GastoDiario,
   ResumoFechamentoCliente,
   ResumoFechamentoUsuario,
-  StatusDespesa,
 } from "@/lib/types";
 
 /** Variação percentual entre dois valores, arredondada a 1 casa. */
@@ -44,13 +47,6 @@ function resumir(despesas: Despesa[]): ResumoPeriodo {
     analistas: new Set(despesas.map((d) => d.usuario_id)).size,
   };
 }
-
-/**
- * Estados que representam gasto consolidado: passaram pelo gate de aprovação.
- * `APROVADO` (aguardando pagamento) + `PAGO` (fechamento já quitado, típico de
- * quinzenas/meses passados). `PENDENTE`/`NEGADO` ficam de fora das somas.
- */
-const STATUS_CONSOLIDADO: StatusDespesa[] = ["APROVADO", "PAGO"];
 
 /**
  * KPIs do dashboard escopados a um `periodo`, com comparação contra o
@@ -137,18 +133,16 @@ export async function getDistribuicaoPorTipo(
 }
 
 /**
- * Resumo por analista do período. Por padrão considera apenas as APROVADAS (fila
- * de pagamento, via `getDespesasPendentes`). Com `todosStatus`, agrega todos os
- * estados — usado no modo consulta da quinzena anterior, onde o interesse é
- * conferir o histórico, não pagar.
+ * Resumo por analista do período. Soma **somente** o que passou pelo gate de
+ * aprovação: APROVADAS (fila de pagamento) e, com `incluirPagas`, também as já
+ * quitadas — recorte da consulta à quinzena anterior. PENDENTE/NEGADO nunca
+ * entram no total, mesmo depois de a quinzena virar.
  */
 export async function getResumoFechamento(
   periodo?: Periodo,
-  opts: { todosStatus?: boolean } = {},
+  opts: { incluirPagas?: boolean } = {},
 ): Promise<ResumoFechamentoUsuario[]> {
-  const despesas = opts.todosStatus
-    ? await getDespesas(periodo)
-    : await getDespesasPendentes(periodo);
+  const despesas = await getDespesasFechamento(periodo, opts);
 
   const porUsuario = new Map<string, ResumoFechamentoUsuario>();
   for (const d of despesas) {
@@ -176,17 +170,18 @@ export async function getResumoFechamento(
 export { SEM_CLIENTE_ID, isClienteInterno };
 
 /**
- * Resumo das pendentes agrupadas por CLIENTE de destino. O nome vem do cadastro
+ * Resumo do fechamento agrupado por CLIENTE de destino, sobre a mesma base
+ * aprovada de `getResumoFechamento`. O nome vem do cadastro
  * de clientes; um `cliente_id` órfão cai em "Cliente removido". As despesas sem
  * cliente vinculado somam numa linha "Sem cliente" (`SEM_CLIENTE_ID`), sempre
  * ao final, para o resumo fechar o total do período.
  */
 export async function getResumoFechamentoPorCliente(
   periodo?: Periodo,
-  opts: { todosStatus?: boolean } = {},
+  opts: { incluirPagas?: boolean } = {},
 ): Promise<ResumoFechamentoCliente[]> {
   const [despesas, clientes] = await Promise.all([
-    opts.todosStatus ? getDespesas(periodo) : getDespesasPendentes(periodo),
+    getDespesasFechamento(periodo, opts),
     getClientes(),
   ]);
 
