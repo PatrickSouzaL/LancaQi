@@ -145,11 +145,11 @@ export function FormularioDespesa({
   const [mostrarModalContinuar, setMostrarModalContinuar] = useState(false);
   const router = useRouter();
 
-  // Janela de datas permitida. Na CRIAÇÃO, limita a no máximo 3 dias no passado;
+  // Janela de datas permitida. Na CRIAÇÃO, limita a no máximo 7 dias no passado;
   // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
   const hoje = startOfDay(new Date());
   const limiteInferior = startOfDay(
-    editando ? subYears(new Date(), 1) : subDays(new Date(), 3),
+    editando ? subYears(new Date(), 1) : subDays(new Date(), 7),
   );
 
   // Visibilidade dos campos finais conforme o tipo escolhido.
@@ -187,7 +187,7 @@ export function FormularioDespesa({
         } else if (isBefore(target, limiteInferior)) {
           e.data = editando
             ? "A data não pode ter mais de 1 ano para trás."
-            : "A data não pode ter mais de 3 dias no passado.";
+            : "A data não pode ter mais de 7 dias no passado.";
         }
       } catch {
         e.data = "Data inválida.";
