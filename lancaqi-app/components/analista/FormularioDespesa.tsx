@@ -149,7 +149,7 @@ export function FormularioDespesa({
   // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
   const hoje = startOfDay(new Date());
   const limiteInferior = startOfDay(
-    editando ? subYears(new Date(), 1) : subDays(new Date(), 3),
+    editando ? subYears(new Date(), 1) : subDays(new Date(), 8),
   );
 
   // Visibilidade dos campos finais conforme o tipo escolhido.
