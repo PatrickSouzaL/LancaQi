@@ -71,7 +71,10 @@ import type {
 import { cn } from "@/lib/utils";
 
 type Erros = Partial<
-  Record<"data" | "tipo" | "cliente" | "km" | "valor" | "descricao", string>
+  Record<
+    "data" | "tipo" | "origem" | "cliente" | "km" | "valor" | "descricao",
+    string
+  >
 >;
 
 // Origem/destino em texto vêm mapeados como "—" quando nulos (ver mappers).
@@ -149,7 +152,7 @@ export function FormularioDespesa({
   // na EDIÇÃO, mantém 1 ano para não travar despesas antigas já registradas.
   const hoje = startOfDay(new Date());
   const limiteInferior = startOfDay(
-    editando ? subYears(new Date(), 1) : subDays(new Date(), 8),
+    editando ? subYears(new Date(), 1) : subDays(new Date(), 3),
   );
 
   // Visibilidade dos campos finais conforme o tipo escolhido.
@@ -202,6 +205,11 @@ export function FormularioDespesa({
       if (km.trim() === "" || Number.isNaN(kmNum) || kmNum <= 0)
         e.km = "Informe uma quilometragem maior que zero.";
     }
+    // Trajeto por cliente (Moto/Carro): origem E destino são obrigatórios.
+    if (mostrarTrajetoCliente) {
+      if (!origemId) e.origem = "Selecione a origem.";
+      if (!clienteId) e.cliente = "Selecione o cliente (destino).";
+    }
     if (clienteObrigatorio && !clienteId) {
       e.cliente = "Selecione o cliente.";
     }
@@ -250,6 +258,7 @@ export function FormularioDespesa({
   const CAMPO_SERVIDOR: Record<string, keyof Erros> = {
     data: "data",
     tipo: "tipo",
+    origem_cliente_id: "origem",
     cliente_id: "cliente",
     quantidade_km: "km",
     valor_declarado: "valor",
@@ -417,7 +426,11 @@ export function FormularioDespesa({
                 value={origemId}
                 onChange={setOrigemId}
                 placeholder="Selecione a origem"
+                invalid={Boolean(erros.origem)}
               />
+              {erros.origem && (
+                <p className="text-sm text-destructive">{erros.origem}</p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cliente">Cliente (destino)</Label>
@@ -427,7 +440,11 @@ export function FormularioDespesa({
                 value={clienteId}
                 onChange={setClienteId}
                 placeholder="Selecione o cliente"
+                invalid={Boolean(erros.cliente)}
               />
+              {erros.cliente && (
+                <p className="text-sm text-destructive">{erros.cliente}</p>
+              )}
             </div>
           </div>
         )}

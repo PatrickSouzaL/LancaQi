@@ -128,8 +128,8 @@ const REFINE_DESCRICAO = {
 const exigeCriacaoRecente = (d: DespesaCampos) => {
   try {
     const target = startOfDay(parseISO(d.data));
-    const oitoDiasAtras = startOfDay(subDays(new Date(), 8));
-    return !isBefore(target, oitoDiasAtras);
+    const tresDiasAtras = startOfDay(subDays(new Date(), 3));
+    return !isBefore(target, tresDiasAtras);
   } catch {
     return false;
   }
