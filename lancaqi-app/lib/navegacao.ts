@@ -10,6 +10,7 @@
  */
 import {
   CalendarClock,
+  ClipboardCheck,
   History,
   LayoutDashboard,
   PlusCircle,
@@ -28,6 +29,7 @@ export interface ItemNavegacao {
 export const NAV_ADMIN: ItemNavegacao[] = [
   { titulo: "Dashboard", href: "/admin/dashboard", icone: LayoutDashboard },
   { titulo: "Novo Lançamento", href: "/admin/lancamento", icone: PlusCircle },
+  { titulo: "Aprovações", href: "/admin/aprovacoes", icone: ClipboardCheck },
   { titulo: "Auditoria", href: "/admin/auditoria", icone: ShieldCheck },
   { titulo: "Clientes", href: "/admin/clientes", icone: Users },
   {

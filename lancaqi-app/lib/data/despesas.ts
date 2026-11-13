@@ -8,7 +8,7 @@ import {
 } from "@/lib/data/mappers";
 import { createClient } from "@/lib/supabase/server";
 import type { Periodo } from "@/lib/periodo";
-import type { Despesa, TipoDespesa } from "@/lib/types";
+import type { Despesa, StatusDespesa, TipoDespesa } from "@/lib/types";
 
 /**
  * Leitura de despesas via Supabase. O acesso é controlado pela RLS:
@@ -16,9 +16,15 @@ import type { Despesa, TipoDespesa } from "@/lib/types";
  * (`auth.uid() = usuario_id`). Ordenado por `criado_em DESC`.
  *
  * O filtro opcional de `periodo` restringe por intervalo de datas (quinzena),
- * aplicado server-side sobre a coluna `data` (DATE).
+ * aplicado server-side sobre a coluna `data` (DATE). O filtro opcional de
+ * `status` restringe o ciclo de vida, também server-side: um único estado
+ * (`.eq`) ou um conjunto (`.in`, ex.: `["APROVADO", "PAGO"]` — tudo que já
+ * passou pelo gate de aprovação, incluindo quinzenas passadas já pagas).
  */
-export async function getDespesas(periodo?: Periodo): Promise<Despesa[]> {
+export async function getDespesas(
+  periodo?: Periodo,
+  status?: StatusDespesa | StatusDespesa[],
+): Promise<Despesa[]> {
   const supabase = await createClient();
   let query = supabase
     .from("despesas")
@@ -28,6 +34,11 @@ export async function getDespesas(periodo?: Periodo): Promise<Despesa[]> {
 
   if (periodo) {
     query = query.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
+  if (status) {
+    query = Array.isArray(status)
+      ? query.in("status", status)
+      : query.eq("status", status);
   }
 
   const { data, error } = await query;
@@ -121,18 +132,37 @@ export async function getDespesasRecentes(limite = 5): Promise<Despesa[]> {
 }
 
 /**
- * Fila do Fechamento Quinzenal (apenas PENDENTE). Com `periodo`, restringe à
- * quinzena vigente (intervalo de `data`), para o pagamento não misturar
- * pendências de quinzenas anteriores.
+ * Estados que já passaram pelo gate de aprovação e, por isso, compõem o
+ * Fechamento: `APROVADO` (a pagar) + `PAGO` (já quitado). `PENDENTE` e `NEGADO`
+ * **nunca** entram — nem no período vigente, nem quando a quinzena vira.
  */
-export async function getDespesasPendentes(
+export const STATUS_CONSOLIDADO: StatusDespesa[] = ["APROVADO", "PAGO"];
+
+/**
+ * Base do Fechamento Quinzenal — apenas despesas já **APROVADAS** pelo Admin
+ * (o gate de aprovação precede o pagamento). Com `periodo`, restringe ao
+ * intervalo de `data` da quinzena.
+ *
+ * Regra de competência: a quinzena de uma despesa é a da sua **data**, não a da
+ * decisão. Uma despesa da quinzena passada aprovada depois da virada volta a
+ * somar no fechamento daquela quinzena (consultável em `?periodo=anterior`); a
+ * que continuar `PENDENTE` ou `NEGADO` não soma em fechamento nenhum — segue na
+ * fila de `/admin/aprovacoes` até haver decisão.
+ *
+ * `incluirPagas` acrescenta as `PAGO` — usado na consulta da quinzena anterior,
+ * onde o lote já foi quitado e o interesse é conferir o fechamento fechado. Na
+ * quinzena vigente fica fora, para a fila de pagamento não repetir o já pago.
+ * Ver `_docs/02-Architecture/feature_expense_approval.md`.
+ */
+export async function getDespesasFechamento(
   periodo?: Periodo,
+  opts: { incluirPagas?: boolean } = {},
 ): Promise<Despesa[]> {
   const supabase = await createClient();
   let query = supabase
     .from("despesas")
     .select(DESPESA_SELECT)
-    .eq("status", "PENDENTE")
+    .in("status", opts.incluirPagas ? STATUS_CONSOLIDADO : ["APROVADO"])
     .order("data", { ascending: false })
     .order("criado_em", { ascending: false });
 
@@ -144,7 +174,40 @@ export async function getDespesasPendentes(
 
   if (error) {
     console.error(
-      "getDespesasPendentes: falha ao ler despesas.",
+      "getDespesasFechamento: falha ao ler despesas.",
+      error.message,
+    );
+    return [];
+  }
+  return (data as unknown as DespesaRow[]).map(mapDespesaFromDb);
+}
+
+/**
+ * Fila de Aprovações do Admin — despesas ainda **PENDENTES**, aguardando a
+ * decisão (aprovar/negar). Com `periodo`, restringe à quinzena informada. Ordena
+ * pelas mais antigas primeiro (`criado_em ASC`) para o Admin decidir por ordem
+ * de chegada. Restrito pela RLS `is_admin()`.
+ */
+export async function getDespesasParaAprovacao(
+  periodo?: Periodo,
+): Promise<Despesa[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("despesas")
+    .select(DESPESA_SELECT)
+    .eq("status", "PENDENTE")
+    .order("data", { ascending: true })
+    .order("criado_em", { ascending: true });
+
+  if (periodo) {
+    query = query.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(
+      "getDespesasParaAprovacao: falha ao ler despesas.",
       error.message,
     );
     return [];

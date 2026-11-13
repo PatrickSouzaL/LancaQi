@@ -1,7 +1,7 @@
 import { Workbook } from "exceljs";
 
 import { getResumoFechamento } from "@/lib/data/dashboard";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasFechamento } from "@/lib/data/despesas";
 import { exigirAdmin } from "@/lib/data/guards";
 import { formatarData, labelStatus, labelTipo } from "@/lib/format";
 import { periodoFechamento } from "@/lib/periodo";
@@ -19,9 +19,9 @@ export const runtime = "nodejs";
  * daquele analista. GET autenticado (cookies de sessão) — o link de download
  * abre direto no navegador.
  *
- * `?periodo=anterior` espelha o modo consulta: quinzena passada com TODOS os
- * status (adiciona a coluna "Status" nas abas); o padrão é só PENDENTE da
- * quinzena vigente.
+ * `?periodo=anterior` espelha o modo consulta: quinzena passada com APROVADO +
+ * PAGO (adiciona a coluna "Status" nas abas); o padrão é só APROVADO da quinzena
+ * vigente. PENDENTE/NEGADO nunca entram no fechamento.
  */
 export async function GET(request: Request) {
   const contexto = await exigirAdmin();
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get("periodo"),
   );
   const [resumo, pendentes] = await Promise.all([
-    getResumoFechamento(periodo, { todosStatus: consulta }),
-    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
+    getResumoFechamento(periodo, { incluirPagas: consulta }),
+    getDespesasFechamento(periodo, { incluirPagas: consulta }),
   ]);
 
   // Despesas agrupadas por analista, para as abas individuais.
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       { header: "Destino", key: "destino", width: 24 },
       { header: "KM", key: "km", width: 10 },
       { header: "Valor (R$)", key: "valor", width: 16 },
-      // No modo consulta há status misto — a coluna diferencia PAGO de PENDENTE.
+      // No modo consulta há status misto — a coluna diferencia PAGO de APROVADO.
       ...(consulta
         ? [{ header: "Status", key: "status", width: 12 }]
         : []),

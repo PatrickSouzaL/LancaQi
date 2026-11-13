@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasFechamento } from "@/lib/data/despesas";
 import { formatarData, labelStatus, labelTipo } from "@/lib/format";
 import { gerarCsv } from "@/lib/csv";
 import { periodoFechamento } from "@/lib/periodo";
@@ -12,7 +12,8 @@ import { periodoFechamento } from "@/lib/periodo";
  * funciona direto no navegador. Separador `;` + BOM para abrir no Excel pt-BR.
  *
  * `?periodo=anterior` espelha o modo consulta da tela: quinzena passada com
- * TODOS os status (PAGO + PENDENTE); o padrão é só PENDENTE da quinzena vigente.
+ * APROVADO + PAGO; o padrão é só APROVADO da quinzena vigente. Em nenhum dos
+ * casos entram PENDENTE ou NEGADO.
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -36,13 +37,13 @@ export async function GET(request: Request) {
     return new Response("Acesso restrito a administradores.", { status: 403 });
   }
 
-  // Mesmo recorte da tela: consulta → todo o período; vigente → só pendentes.
+  // Mesmo recorte da tela: consulta → aprovadas + pagas; vigente → aprovadas.
   const { consulta, periodo } = periodoFechamento(
     new URL(request.url).searchParams.get("periodo"),
   );
-  const pendentes = consulta
-    ? await getDespesas(periodo)
-    : await getDespesasPendentes(periodo);
+  const pendentes = await getDespesasFechamento(periodo, {
+    incluirPagas: consulta,
+  });
 
   const cabecalho = [
     "Analista",
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
   const hoje = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
   }).format(new Date());
-  const nome = consulta ? "despesas-periodo" : "despesas-pendentes";
+  const nome = consulta ? "despesas-aprovadas-anterior" : "despesas-aprovadas";
 
   return new Response(gerarCsv(cabecalho, linhas), {
     status: 200,

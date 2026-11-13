@@ -40,6 +40,10 @@ import { cn } from "@/lib/utils";
 const STATUS_CLASSES: Record<StatusDespesa, string> = {
   PENDENTE:
     "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  APROVADO:
+    "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
+  NEGADO:
+    "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
   PAGO: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
 };
 

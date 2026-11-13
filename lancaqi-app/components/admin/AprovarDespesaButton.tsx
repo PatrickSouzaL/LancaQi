@@ -19,9 +19,11 @@ import {
 import { Button } from "@/components/ui/button";
 
 /**
- * Aprova uma despesa (status → PAGO) com confirmação. Autorização real na RLS
- * (`is_admin()`); a action `aprovarDespesa` só transiciona pendentes. O diálogo
- * só fecha após a conclusão (spinner no botão durante a transição).
+ * Aprova uma despesa (status PENDENTE → APROVADO) com confirmação. Autorização
+ * real na RLS (`is_admin()`); a action `aprovarDespesa` só transiciona pendentes
+ * e registra a decisão na trilha de auditoria. O diálogo só fecha após a
+ * conclusão (spinner no botão durante a transição). Aprovar libera a despesa
+ * para o Fechamento Quinzenal; o pagamento em si acontece lá.
  */
 export function AprovarDespesaButton({
   id,
@@ -64,8 +66,8 @@ export function AprovarDespesaButton({
           <AlertDialogDescription>
             A despesa de{" "}
             <span className="font-medium text-foreground">{nome}</span> será
-            marcada como <span className="font-medium">paga</span>. Despesas
-            pagas não podem mais ser editadas.
+            marcada como <span className="font-medium">aprovada</span> e entrará
+            no próximo Fechamento Quinzenal. O analista não poderá mais editá-la.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

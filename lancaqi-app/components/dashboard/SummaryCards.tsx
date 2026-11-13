@@ -85,7 +85,7 @@ export function SummaryCards({ kpis }: { kpis: DashboardKpis }) {
       icone: Route,
     },
     {
-      titulo: "Despesas Pendentes",
+      titulo: "Despesas pendentes de Aprovação",
       valor: String(kpis.despesasPendentes),
       variacao: inteiro(kpis.variacaoPendentes),
       positiva: kpis.variacaoPendentes <= 0, // queda = bom

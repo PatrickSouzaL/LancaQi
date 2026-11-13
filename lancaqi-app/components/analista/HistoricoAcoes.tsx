@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pencil } from "lucide-react";
 
 import { ExcluirDespesaButton } from "@/components/ExcluirDespesaButton";
+import { MotivoNegacaoButton } from "@/components/MotivoNegacaoButton";
 import { FormularioDespesa } from "@/components/analista/FormularioDespesa";
 import type { OpcaoCliente } from "@/components/ClienteCombobox";
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,12 @@ import type { ConfiguracoesTaxas, Despesa } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Ações do analista sobre a própria despesa: editar e excluir — disponíveis
- * apenas enquanto `PENDENTE` (a RLS bloqueia despesas já pagas). A edição abre
- * um Sheet reaproveitando o `FormularioDespesa` em modo de edição.
+ * Ações do analista sobre a própria despesa:
+ * - `PENDENTE`: editar e excluir (a RLS bloqueia despesas já decididas/pagas).
+ *   A edição abre um Sheet reaproveitando o `FormularioDespesa`.
+ * - `NEGADO`: ver o motivo documentado pelo Admin (leitura). O texto é renderizado
+ *   como conteúdo puro (escape do React), sem HTML — sem vetor de XSS.
+ * - `APROVADO`/`PAGO`: sem ações (imutáveis para o analista).
  */
 export function HistoricoAcoes({
   despesa,
@@ -36,7 +40,16 @@ export function HistoricoAcoes({
 }) {
   const [aberto, setAberto] = useState(false);
 
-  // Despesas pagas são imutáveis para o analista — sem ações.
+  // Despesa negada: única ação é consultar o motivo da negação.
+  if (despesa.status === "NEGADO") {
+    return (
+      <div className={cn("flex items-center justify-end gap-1", className)}>
+        <MotivoNegacaoButton motivo={despesa.motivo_negacao} />
+      </div>
+    );
+  }
+
+  // Aprovadas e pagas são imutáveis para o analista — sem ações.
   if (despesa.status !== "PENDENTE") return null;
 
   return (

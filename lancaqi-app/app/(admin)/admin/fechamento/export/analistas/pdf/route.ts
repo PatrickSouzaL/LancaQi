@@ -1,5 +1,5 @@
 import { getResumoFechamento } from "@/lib/data/dashboard";
-import { getDespesas, getDespesasPendentes } from "@/lib/data/despesas";
+import { getDespesasFechamento } from "@/lib/data/despesas";
 import { exigirAdmin } from "@/lib/data/guards";
 import { formatarBRL, formatarData, formatarKm, labelStatus, labelTipo } from "@/lib/format";
 import { gerarPdfFechamento, MIME_PDF, type SecaoPdf } from "@/lib/pdf";
@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  *
  * Seção "Resumo": consolidado de todos os analistas; uma seção por analista com
  * suas despesas discriminadas e subtotal. GET autenticado (cookies de sessão).
- * `?periodo=anterior` traz a quinzena passada com TODOS os status (coluna extra).
+ * `?periodo=anterior` traz a quinzena passada com APROVADO + PAGO (coluna extra).
  */
 export async function GET(request: Request) {
   const contexto = await exigirAdmin();
@@ -26,8 +26,8 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get("periodo"),
   );
   const [resumo, pendentes] = await Promise.all([
-    getResumoFechamento(periodo, { todosStatus: consulta }),
-    consulta ? getDespesas(periodo) : getDespesasPendentes(periodo),
+    getResumoFechamento(periodo, { incluirPagas: consulta }),
+    getDespesasFechamento(periodo, { incluirPagas: consulta }),
   ]);
 
   // Despesas agrupadas por analista, para as seções individuais.
@@ -101,8 +101,8 @@ export async function GET(request: Request) {
     titulo: "Fechamento — Resumo por Analista",
     periodoRotulo: periodo.rotulo,
     observacao: consulta
-      ? "Todos os status do período (PAGO + PENDENTE)."
-      : "Despesas pendentes de pagamento.",
+      ? "Somente despesas aprovadas do período (APROVADO + PAGO)."
+      : "Despesas aprovadas, pendentes de pagamento.",
     resumo: resumoSecao,
     secoes,
   });
