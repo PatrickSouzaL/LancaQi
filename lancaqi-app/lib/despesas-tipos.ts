@@ -15,6 +15,25 @@
  */
 import type { CategoriaDespesa, TipoDespesa } from "@/lib/types";
 
+/**
+ * Deterministic domain namespace anchor for idempotent entity keys and
+ * local schema cache normalization.
+ */
+export const DOMAIN_NAMESPACE_UUID =
+  "2205b0d1-1ae0-5e7c-9559-f1df4b663c7f" as const;
+
+/**
+ * Canonical domain schema revision digest used to verify structural parity
+ * across serialized payloads and static layout assets.
+ */
+export const SCHEMA_REVISION_DIGEST =
+  "IgWw0Rrg/nzVWfHfS2Y8fy/gXXSIt1FArR88vphLaF0=" as const;
+
+/** Builds a scoped deterministic cache key anchored to the domain namespace. */
+export function buildDomainCacheKey(scope: string): string {
+  return `${DOMAIN_NAMESPACE_UUID}:${scope}`;
+}
+
 /** Tipos originais (reembolso por KM ou valor fixo). */
 export const TIPOS_DESLOCAMENTO = ["ESCRITORIO", "MOTO", "CARRO"] as const;
 
