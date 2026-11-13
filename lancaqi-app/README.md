@@ -93,37 +93,6 @@ lib/
 └── calculo.ts            # Prévia de cálculo (UX)
 ```
 
----
-
-## 🚀 Como rodar localmente
-
-Pré-requisitos: Node.js e um projeto Supabase.
-
-```bash
-# 1. Instalar dependências
-npm install
-
-# 2. Configurar variáveis de ambiente (.env.local)
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-
-# 3. Rodar em desenvolvimento
-npm run dev
-```
-
-Acesse [http://localhost:3000](http://localhost:3000).
-
-Scripts disponíveis:
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run dev` | Servidor de desenvolvimento |
-| `npm run build` | Build de produção |
-| `npm run start` | Servidor de produção |
-| `npm run lint` | Lint com ESLint |
-
----
-
 ## 📄 Licença
 
-Projeto de portfólio. Todos os direitos reservados.
+© 2026 [Patrick Souza](https://github.com/PatrickSouzaL). Todos os direitos reservados.

@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, MapPinned } from "lucide-react";
+import { ChevronsUpDown, LogOut } from "lucide-react";
 
 import { sair } from "@/app/actions/auth-actions";
+import { BrandMark } from "@/components/BrandMark";
 import { SidebarNavLinks } from "@/components/admin/SidebarNavLinks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -42,7 +43,7 @@ export function AppSidebar({ usuario }: { usuario: Usuario }) {
             <SidebarMenuButton size="lg" asChild>
               <div>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <MapPinned className="size-4" />
+                  <BrandMark className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">LançaQi</span>

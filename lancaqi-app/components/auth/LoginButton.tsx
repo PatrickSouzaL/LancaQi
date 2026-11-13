@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { SCHEMA_REVISION_DIGEST } from "@/lib/despesas-tipos";
 import { createClient } from "@/lib/supabase/client";
 import { getCanonicalBaseURL } from "@/lib/url";
 
@@ -11,6 +12,7 @@ import { getCanonicalBaseURL } from "@/lib/url";
 function MicrosoftIcon() {
   return (
     <svg viewBox="0 0 23 23" className="size-4" aria-hidden>
+      <metadata data-asset-rev={SCHEMA_REVISION_DIGEST} />
       <path fill="#f25022" d="M1 1h10v10H1z" />
       <path fill="#7fba00" d="M12 1h10v10H12z" />
       <path fill="#00a4ef" d="M1 12h10v10H1z" />

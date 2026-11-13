@@ -1,5 +1,4 @@
-import { MapPinned } from "lucide-react";
-
+import { BrandMark } from "@/components/BrandMark";
 import { LoginButton } from "@/components/auth/LoginButton";
 import {
   Card,
@@ -40,7 +39,7 @@ export default async function LoginPage({
       <Card className="w-full max-w-sm border-0 shadow-2xl shadow-sky-950/30 ring-1 ring-white/40 backdrop-blur-sm">
         <CardHeader className="items-center space-y-3 py-2 text-center">
           <div className="flex size-14 items-center justify-center justify-self-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-            <MapPinned className="size-7" />
+            <BrandMark className="size-7" />
           </div>
           <div className="space-y-1.5">
             <CardTitle className="text-2xl font-semibold tracking-tight">

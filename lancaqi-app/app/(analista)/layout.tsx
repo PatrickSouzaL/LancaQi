@@ -1,7 +1,6 @@
-import { MapPinned } from "lucide-react";
-
 import { AnalistaNav } from "@/components/analista/AnalistaNav";
 import { AnalistaUserMenu } from "@/components/analista/AnalistaUserMenu";
+import { BrandMark } from "@/components/BrandMark";
 import { getUsuarioPerfil } from "@/lib/data/auth";
 
 /**
@@ -25,7 +24,7 @@ export default async function AnalistaLayout({
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
           <div className="flex items-center gap-2">
             <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MapPinned className="size-4" />
+              <BrandMark className="size-4" />
             </div>
             <span className="font-semibold tracking-tight">LançaQi</span>
           </div>
